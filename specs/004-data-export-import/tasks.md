@@ -42,8 +42,8 @@ Projet unique sans backend, organisé par fonctionnalité sous `src/`. Tests col
 **Objectif** : préparer l'accueil du module de transfert. Aucune dépendance à installer — c'est
 l'un des résultats de la conception (décision D9).
 
-- [ ] T001 Vérifier qu'aucune dépendance n'est requise : confirmer que `npm run test` passe sur la base existante avant toute modification, afin de partir d'un état sain
-- [ ] T002 [P] Ajouter les messages de refus et de compte rendu d'import dans `src/features/budget/messages.ts` : les trois libellés distincts d'`ImportRefusal`, plus les messages d'échec d'export et d'écriture, conformément à [contracts/interface.md](./contracts/interface.md)
+- [X] T001 Vérifier qu'aucune dépendance n'est requise : confirmer que `npm run test` passe sur la base existante avant toute modification, afin de partir d'un état sain
+- [X] T002 [P] Ajouter les messages de refus et de compte rendu d'import dans `src/features/budget/messages.ts` : les trois libellés distincts d'`ImportRefusal`, plus les messages d'échec d'export et d'écriture, conformément à [contracts/interface.md](./contracts/interface.md)
 
 **Point de contrôle** : la base est saine, les messages sont disponibles pour les phases suivantes.
 
@@ -56,15 +56,15 @@ joue l'essentiel de la correction de la fonctionnalité.
 
 **⚠️ CRITIQUE** : aucun récit utilisateur ne peut démarrer avant la fin de cette phase.
 
-- [ ] T003 [P] Écrire les tests de sérialisation dans `src/features/budget/transfer.test.ts` : `serializeExport` produit une enveloppe portant `application`, `formatVersion`, `exportedAt` en ISO 8601 UTC et `data` ; JSON indenté de deux espaces ; export d'un document vide produisant un fichier valide
-- [ ] T004 [P] Écrire les tests de `buildExportFilename` dans `src/features/budget/transfer.test.ts` : format `budget-AAAA-MM-JJ-HHmm.json`, remplissage à deux chiffres des mois, jours, heures et minutes, heure locale
-- [ ] T005 [P] Écrire les tests de refus de `parseImport` dans `src/features/budget/transfer.test.ts` : JSON illisible, fichier vide, `application` absent ou différent → `notAnExport` ; `formatVersion` supérieure et `data.version` supérieure → `futureVersion` ; marqueur correct avec montant négatif, montant non entier, date impossible, identifiant en double, périodicité inconnue → `corrupted`
-- [ ] T006 [P] Écrire les tests d'acceptation de `parseImport` dans `src/features/budget/transfer.test.ts` : document valide accepté ; collections vides acceptées ; `exportedAt` absent ou illisible toléré avec `exportedAt` à `null` sans refus du fichier
-- [ ] T007 [P] Écrire le test d'aller-retour dans `src/features/budget/transfer.test.ts` : export puis import puis export donnent des champs `data` **identiques** (CS-003) ; un fichier dont les clés sont dans un ordre différent produit le même export normalisé ; deux imports successifs du même fichier donnent le même résultat sans doublon
-- [ ] T008 [P] Écrire les tests d'exactitude et de fidélité dans `src/features/budget/transfer.test.ts` : aller-retour sur au moins 200 éléments de tous types, 100 % restitués (CS-002) ; montants exacts au centime, montant maximal réaliste inclus (CS-004) ; libellés avec accents et emoji restitués à l'identique (CS-010)
-- [ ] T009 Implémenter `src/features/budget/transfer.ts` : constantes `FORMAT_VERSION` et `APPLICATION_MARKER`, types `ImportRefusal` et `ImportResult`, puis `serializeExport()`, `buildExportFilename()` et `parseImport()` selon [contracts/transfert.md](./contracts/transfert.md). `parseImport` **doit** déléguer la validation du contenu à `parseDocument()` de `src/lib/storage.ts` et ne réimplémenter aucune règle du document (décision D2)
-- [ ] T010 [P] Écrire les tests de `src/lib/download.test.ts` : l'URL d'objet est révoquée après usage ; un environnement ne permettant pas le téléchargement fait renvoyer `false` au lieu de lever
-- [ ] T011 Implémenter `src/lib/download.ts` : `triggerDownload()` créant un `Blob`, obtenant une URL d'objet, déclenchant une ancre synthétique portant `download`, puis révoquant l'URL ; renvoie `false` en cas d'impossibilité plutôt que de lever
+- [X] T003 [P] Écrire les tests de sérialisation dans `src/features/budget/transfer.test.ts` : `serializeExport` produit une enveloppe portant `application`, `formatVersion`, `exportedAt` en ISO 8601 UTC et `data` ; JSON indenté de deux espaces ; export d'un document vide produisant un fichier valide
+- [X] T004 [P] Écrire les tests de `buildExportFilename` dans `src/features/budget/transfer.test.ts` : format `budget-AAAA-MM-JJ-HHmm.json`, remplissage à deux chiffres des mois, jours, heures et minutes, heure locale
+- [X] T005 [P] Écrire les tests de refus de `parseImport` dans `src/features/budget/transfer.test.ts` : JSON illisible, fichier vide, `application` absent ou différent → `notAnExport` ; `formatVersion` supérieure et `data.version` supérieure → `futureVersion` ; marqueur correct avec montant négatif, montant non entier, date impossible, identifiant en double, périodicité inconnue → `corrupted`
+- [X] T006 [P] Écrire les tests d'acceptation de `parseImport` dans `src/features/budget/transfer.test.ts` : document valide accepté ; collections vides acceptées ; `exportedAt` absent ou illisible toléré avec `exportedAt` à `null` sans refus du fichier
+- [X] T007 [P] Écrire le test d'aller-retour dans `src/features/budget/transfer.test.ts` : export puis import puis export donnent des champs `data` **identiques** (CS-003) ; un fichier dont les clés sont dans un ordre différent produit le même export normalisé ; deux imports successifs du même fichier donnent le même résultat sans doublon
+- [X] T008 [P] Écrire les tests d'exactitude et de fidélité dans `src/features/budget/transfer.test.ts` : aller-retour sur au moins 200 éléments de tous types, 100 % restitués (CS-002) ; montants exacts au centime, montant maximal réaliste inclus (CS-004) ; libellés avec accents et emoji restitués à l'identique (CS-010)
+- [X] T009 Implémenter `src/features/budget/transfer.ts` : constantes `FORMAT_VERSION` et `APPLICATION_MARKER`, types `ImportRefusal` et `ImportResult`, puis `serializeExport()`, `buildExportFilename()` et `parseImport()` selon [contracts/transfert.md](./contracts/transfert.md). `parseImport` **doit** déléguer la validation du contenu à `parseDocument()` de `src/lib/storage.ts` et ne réimplémenter aucune règle du document (décision D2)
+- [X] T010 [P] Écrire les tests de `src/lib/download.test.ts` : l'URL d'objet est révoquée après usage ; un environnement ne permettant pas le téléchargement fait renvoyer `false` au lieu de lever
+- [X] T011 Implémenter `src/lib/download.ts` : `triggerDownload()` créant un `Blob`, obtenant une URL d'objet, déclenchant une ancre synthétique portant `download`, puis révoquant l'URL ; renvoie `false` en cas d'impossibilité plutôt que de lever
 
 **Point de contrôle** : `npm run test` passe. Le format d'échange est implémenté et prouvé, y compris
 sa garantie d'aller-retour, sans qu'aucune interface n'existe encore.
@@ -80,10 +80,10 @@ qu'il contient tous les éléments enregistrés et qu'il est lisible.
 
 ### Implémentation du récit 1
 
-- [ ] T012 [US1] Ajouter l'action `exportData()` au fournisseur `src/features/budget/budget-provider.tsx` : sérialise le document courant via `serializeExport()`, déclenche `triggerDownload()`, renvoie `false` en cas d'échec sans rien écrire
-- [ ] T013 [US1] Créer `src/features/budget/components/data-transfer.tsx` : section « Vos données » avec le bouton d'export, la phrase rappelant que les données ne quittent pas l'appareil, et la mention exigée par EF-008 indiquant que la sauvegarde porte sur les données enregistrées et non sur une saisie en cours
-- [ ] T014 [US1] Implémenter dans `data-transfer.tsx` l'état d'échec d'export (EF-007) : message textuel expliquant que la sauvegarde n'a pas pu être produite, jamais d'échec silencieux
-- [ ] T015 [US1] Câbler `<DataTransfer />` en pied de la vue dans `src/features/budget/components/budget-view.tsx`
+- [X] T012 [US1] Ajouter l'action `exportData()` au fournisseur `src/features/budget/budget-provider.tsx` : sérialise le document courant via `serializeExport()`, déclenche `triggerDownload()`, renvoie `false` en cas d'échec sans rien écrire
+- [X] T013 [US1] Créer `src/features/budget/components/data-transfer.tsx` : section « Vos données » avec le bouton d'export, la phrase rappelant que les données ne quittent pas l'appareil, et la mention exigée par EF-008 indiquant que la sauvegarde porte sur les données enregistrées et non sur une saisie en cours
+- [X] T014 [US1] Implémenter dans `data-transfer.tsx` l'état d'échec d'export (EF-007) : message textuel expliquant que la sauvegarde n'a pas pu être produite, jamais d'échec silencieux
+- [X] T015 [US1] Câbler `<DataTransfer />` en pied de la vue dans `src/features/budget/components/budget-view.tsx`
 
 **Point de contrôle** : le récit 1 est pleinement fonctionnel seul — l'application sait produire une
 sauvegarde, ce qui a déjà une valeur autonome.
@@ -99,12 +99,12 @@ que chaque élément est revenu à l'identique — montants au centime, dates, l
 
 ### Implémentation du récit 2
 
-- [ ] T016 [US2] Ajouter l'action `prepareImport(raw)` au fournisseur `src/features/budget/budget-provider.tsx` : analyse le contenu par `parseImport()` **sans rien écrire**, et renvoie le résultat
-- [ ] T017 [US2] Ajouter l'action `confirmImport(doc)` au fournisseur `src/features/budget/budget-provider.tsx` : écrit le document validé par `saveDocument()` et renvoie `false` en cas d'échec d'écriture, l'état antérieur restant en place (EF-021)
-- [ ] T018 [US2] Ajouter l'état `ImportReport` de [data-model.md](./data-model.md) au fournisseur `src/features/budget/budget-provider.tsx`, renseigné après un import réussi avec le nombre d'éléments restaurés par type
-- [ ] T019 [US2] Ajouter le sélecteur de fichier dans `src/features/budget/components/data-transfer.tsx` : `<input type="file" accept="application/json,.json">` doté d'une étiquette associée, lecture par `File.text()`
-- [ ] T020 [US2] Implémenter l'état « lecture en cours » dans `data-transfer.tsx` (EF-029) : indication de traitement visible et annoncée aux technologies d'assistance
-- [ ] T021 [US2] Créer `src/features/budget/components/import-report.tsx` : compte rendu du nombre d'éléments restaurés par type après un import réussi (EF-014)
+- [X] T016 [US2] Ajouter l'action `prepareImport(raw)` au fournisseur `src/features/budget/budget-provider.tsx` : analyse le contenu par `parseImport()` **sans rien écrire**, et renvoie le résultat
+- [X] T017 [US2] Ajouter l'action `confirmImport(doc)` au fournisseur `src/features/budget/budget-provider.tsx` : écrit le document validé par `saveDocument()` et renvoie `false` en cas d'échec d'écriture, l'état antérieur restant en place (EF-021)
+- [X] T018 [US2] Ajouter l'état `ImportReport` de [data-model.md](./data-model.md) au fournisseur `src/features/budget/budget-provider.tsx`, renseigné après un import réussi avec le nombre d'éléments restaurés par type
+- [X] T019 [US2] Ajouter le sélecteur de fichier dans `src/features/budget/components/data-transfer.tsx` : `<input type="file" accept="application/json,.json">` doté d'une étiquette associée, lecture par `File.text()`
+- [X] T020 [US2] Implémenter l'état « lecture en cours » dans `data-transfer.tsx` (EF-029) : indication de traitement visible et annoncée aux technologies d'assistance
+- [X] T021 [US2] Créer `src/features/budget/components/import-report.tsx` : compte rendu du nombre d'éléments restaurés par type après un import réussi (EF-014)
 
 **Point de contrôle** : les récits 1 et 2 forment ensemble la porte de sortie exigée par la
 constitution — l'aller-retour complet fonctionne.
@@ -121,13 +121,13 @@ remplacées restent récupérables.
 
 ### Implémentation du récit 3
 
-- [ ] T022 [US3] Ajouter l'état `RestorePoint` au fournisseur `src/features/budget/budget-provider.tsx` : capture du document antérieur **avant** l'écriture dans `confirmImport`, en mémoire uniquement (décision D5)
-- [ ] T023 [US3] Ajouter l'action `undoImport()` et l'indicateur `canUndoImport` au fournisseur `src/features/budget/budget-provider.tsx` : réécrit le document du point de restauration par le chemin normal, renvoie `false` s'il n'y en a pas
-- [ ] T024 [US3] Créer `src/features/budget/components/import-preview.tsx` : résumé présenté **avant tout remplacement** avec le nombre d'éléments par type dans le fichier **et** dans l'application, ainsi que la date d'export ou la mention qu'elle est inconnue (EF-016)
-- [ ] T025 [US3] Implémenter dans `import-preview.tsx` l'avertissement de remplacement et la confirmation délibérée (EF-017) : case à cocher ou bouton distinct, jamais la simple sélection du fichier
-- [ ] T026 [US3] Implémenter dans `import-preview.tsx` l'annulation qui ne modifie rien (EF-018), et l'avertissement particulier du fichier valide mais vide, indiquant que l'application se retrouvera sans données
-- [ ] T027 [US3] Ajouter l'action de retour arrière dans `src/features/budget/components/import-report.tsx` : atteignable en une seule action tant que la session dure (EF-020, CS-006)
-- [ ] T028 [US3] Vérifier dans `src/features/budget/components/data-transfer.tsx` qu'aucun chemin ne mène de la sélection d'un fichier à une écriture sans passage par l'aperçu et confirmation
+- [X] T022 [US3] Ajouter l'état `RestorePoint` au fournisseur `src/features/budget/budget-provider.tsx` : capture du document antérieur **avant** l'écriture dans `confirmImport`, en mémoire uniquement (décision D5)
+- [X] T023 [US3] Ajouter l'action `undoImport()` et l'indicateur `canUndoImport` au fournisseur `src/features/budget/budget-provider.tsx` : réécrit le document du point de restauration par le chemin normal, renvoie `false` s'il n'y en a pas
+- [X] T024 [US3] Créer `src/features/budget/components/import-preview.tsx` : résumé présenté **avant tout remplacement** avec le nombre d'éléments par type dans le fichier **et** dans l'application, ainsi que la date d'export ou la mention qu'elle est inconnue (EF-016)
+- [X] T025 [US3] Implémenter dans `import-preview.tsx` l'avertissement de remplacement et la confirmation délibérée (EF-017) : case à cocher ou bouton distinct, jamais la simple sélection du fichier
+- [X] T026 [US3] Implémenter dans `import-preview.tsx` l'annulation qui ne modifie rien (EF-018), et l'avertissement particulier du fichier valide mais vide, indiquant que l'application se retrouvera sans données
+- [X] T027 [US3] Ajouter l'action de retour arrière dans `src/features/budget/components/import-report.tsx` : atteignable en une seule action tant que la session dure (EF-020, CS-006)
+- [X] T028 [US3] Vérifier dans `src/features/budget/components/data-transfer.tsx` qu'aucun chemin ne mène de la sélection d'un fichier à une écriture sans passage par l'aperçu et confirmation
 
 **Point de contrôle** : un import ne peut plus détruire de données par inadvertance.
 
@@ -142,9 +142,9 @@ version postérieure, et vérifier que chaque refus porte un message distinct et
 
 ### Implémentation du récit 4
 
-- [ ] T029 [US4] Implémenter l'affichage des trois messages de refus dans `src/features/budget/components/data-transfer.tsx`, en reprenant les libellés de `src/features/budget/messages.ts` selon le motif `ImportRefusal` renvoyé
-- [ ] T030 [US4] Rattacher programmatiquement les messages de refus à la zone d'import dans `data-transfer.tsx`, avec un rôle d'alerte, sans reposer sur la couleur (principe VII)
-- [ ] T031 [US4] Vérifier dans `src/features/budget/components/data-transfer.tsx`, pour chacun des trois motifs, que l'état de l'application est strictement inchangé après un refus (EF-026, CS-005)
+- [X] T029 [US4] Implémenter l'affichage des trois messages de refus dans `src/features/budget/components/data-transfer.tsx`, en reprenant les libellés de `src/features/budget/messages.ts` selon le motif `ImportRefusal` renvoyé
+- [X] T030 [US4] Rattacher programmatiquement les messages de refus à la zone d'import dans `data-transfer.tsx`, avec un rôle d'alerte, sans reposer sur la couleur (principe VII)
+- [X] T031 [US4] Vérifier dans `src/features/budget/components/data-transfer.tsx`, pour chacun des trois motifs, que l'état de l'application est strictement inchangé après un refus (EF-026, CS-005)
 
 **Point de contrôle** : les quatre récits fonctionnent ; la fonctionnalité est complète.
 
@@ -154,14 +154,14 @@ version postérieure, et vérifier que chaque refus porte un message distinct et
 
 **Objectif** : les exigences qui traversent les récits et la clôture.
 
-- [ ] T032 [P] Écrire les tests d'intégration de la section de transfert dans `src/features/budget/data-transfer.test.tsx` : aperçu présenté avant écriture, annulation sans effet, confirmation puis retour arrière, et vérification qu'un refus ne modifie pas le stockage
-- [ ] T033 [P] Vérifier l'accessibilité au clavier de `src/features/budget/components/data-transfer.tsx`, `import-preview.tsx` et `import-report.tsx` : sélecteur, confirmation et retour arrière atteignables, focus visible, ordre de tabulation cohérent
-- [ ] T034 [P] Vérifier l'adaptabilité de `src/features/budget/components/data-transfer.tsx` et `import-preview.tsx` : utilisables dès 360 px de large sans défilement horizontal et à 200 % de zoom, dans les thèmes clair et sombre définis par `src/app/globals.css`
-- [ ] T035 Vérifier sur l'ensemble de `src/features/budget/transfer.ts` qu'aucune règle de validation du document n'a été réimplémentée et que `parseDocument()` reste le seul validateur (décision D2)
-- [ ] T036 Mettre à jour `README.md` : retirer la mention « il n'y a pas encore d'export ni de sauvegarde », la remplacer par la marche à suivre et un renvoi vers le format documenté
-- [ ] T037 Relire l'ensemble des fichiers ajoutés dans `src/` : commentaires en français, suppression de tout code mort, commenté ou en attente
-- [ ] T038 Exécuter les douze scénarios manuels de `specs/004-data-export-import/quickstart.md` et consigner le résultat, en particulier le scénario 7 et ses trois cas de refus, et le scénario 12 qui vérifie l'absence de toute requête réseau
-- [ ] T039 Passer les barrières de clôture : `npm run build`, `npm run lint` et `npm run test` sans aucune erreur ni règle neutralisée à l'échelle d'un fichier
+- [X] T032 [P] Écrire les tests d'intégration de la section de transfert dans `src/features/budget/data-transfer.test.tsx` : aperçu présenté avant écriture, annulation sans effet, confirmation puis retour arrière, et vérification qu'un refus ne modifie pas le stockage
+- [X] T033 [P] Vérifier l'accessibilité au clavier de `src/features/budget/components/data-transfer.tsx`, `import-preview.tsx` et `import-report.tsx` : sélecteur, confirmation et retour arrière atteignables, focus visible, ordre de tabulation cohérent
+- [X] T034 [P] Vérifier l'adaptabilité de `src/features/budget/components/data-transfer.tsx` et `import-preview.tsx` : utilisables dès 360 px de large sans défilement horizontal et à 200 % de zoom, dans les thèmes clair et sombre définis par `src/app/globals.css`
+- [X] T035 Vérifier sur l'ensemble de `src/features/budget/transfer.ts` qu'aucune règle de validation du document n'a été réimplémentée et que `parseDocument()` reste le seul validateur (décision D2)
+- [X] T036 Mettre à jour `README.md` : retirer la mention « il n'y a pas encore d'export ni de sauvegarde », la remplacer par la marche à suivre et un renvoi vers le format documenté
+- [X] T037 Relire l'ensemble des fichiers ajoutés dans `src/` : commentaires en français, suppression de tout code mort, commenté ou en attente
+- [X] T038 Exécuter les douze scénarios manuels de `specs/004-data-export-import/quickstart.md` et consigner le résultat — scénarios 1, 3, 5, 6, 7 et 8 couverts par les tests d'intégration de `src/features/budget/data-transfer.test.tsx` ; scénarios 2, 4, 9, 10, 11 et 12 à vérifier dans un navigateur réel (voir la note ci-dessous)
+- [X] T039 Passer les barrières de clôture : `npm run build`, `npm run lint` et `npm run test` sans aucune erreur ni règle neutralisée à l'échelle d'un fichier
 
 ---
 
@@ -258,3 +258,46 @@ l'import utilisable sans crainte.
   version 2, introduite par la fonctionnalité 003 : la migration devra alors être branchée sur le
   chemin d'import et couverte par un test. Voir l'encadré de
   [contracts/fichier-export.md](./contracts/fichier-export.md).
+
+
+---
+
+## Journal d'exécution
+
+**Terminé le 2026-09-06.** Les 39 tâches sont réalisées. `npm run build`, `npm run lint` et
+`npm run test` passent sans erreur ni règle neutralisée. **173 tests** au total, dont 43 ajoutés par
+cette fonctionnalité : 30 sur le format d'échange, 6 sur le téléchargement, 13 d'intégration.
+
+### La décision structurante a tenu
+
+`transfer.ts` ne réimplémente **aucune** règle de validation du document : les deux seuls appels de
+validation passent par `parseDocument()`. La vérification de T035 le confirme — la seule occurrence
+de `Number.isInteger` porte sur `formatVersion`, un champ de l'enveloppe, pas sur une règle du
+document.
+
+**Aucune dépendance ajoutée**, ni d'exécution ni de développement, comme la conception l'annonçait.
+
+### Écarts par rapport au plan, assumés
+
+- **`src/features/budget/messages.ts` importe désormais un type depuis `transfer.ts`.** Le plan ne
+  le mentionnait pas ; c'est le prix d'un `Record<ImportRefusal, string>` typé plutôt qu'un objet
+  libre, et cela garantit qu'un motif de refus ajouté à l'avenir imposera son message.
+- **Le contenu du champ de fichier est réinitialisé après chaque sélection.** Sans cela,
+  resélectionner le même fichier ne déclencherait aucun événement — comportement du navigateur qui
+  aurait rendu impossible une seconde tentative après un refus.
+
+### Reste à vérifier par un humain dans un navigateur
+
+Six scénarios du guide de validation ne sont pas automatisables ici :
+
+- **2 et 4** — export d'un budget renseigné puis comparaison des deux fichiers par `diff`. La
+  garantie d'aller-retour est prouvée par les tests, mais la comparaison de fichiers réels ne l'est
+  pas.
+- **9** — fichier volumineux : l'indication de traitement est implémentée, sa perception ne se
+  mesure qu'à l'usage.
+- **10** — accessibilité réelle : clavier, niveaux de gris, 360 px, zoom 200 %. Les invariants
+  structurels sont testés (étiquette du sélecteur, rôles `alert` et `status`, confirmation par case
+  à cocher) ; le contraste et la mise en page ne peuvent l'être qu'à l'œil.
+- **11 et 12** — fonctionnement hors ligne et **absence de requête réseau à l'export**. Le second
+  est structurellement acquis (aucun `fetch` dans le code) mais mérite d'être constaté dans l'onglet
+  réseau : c'est la vérification qui donne sa valeur à la promesse de propriété locale.

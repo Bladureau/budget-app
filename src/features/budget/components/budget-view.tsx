@@ -9,6 +9,7 @@ import { SubscriptionList } from "@/features/budget/components/subscription-list
 import { ChargeBreakdown } from "@/features/budget/components/charge-breakdown";
 import { UpcomingDues } from "@/features/budget/components/upcoming-dues";
 import { ForecastView } from "@/features/budget/components/forecast-view";
+import { DataTransfer } from "@/features/budget/components/data-transfer";
 
 /** Vue budgétaire complète : synthèse, saisie, ventilation et anticipation. */
 export function BudgetView() {
@@ -36,6 +37,7 @@ export function BudgetView() {
             <ChargeBreakdown />
             <UpcomingDues />
             <ForecastView />
+            <DataTransfer />
           </>
         ) : (
           <p className="text-sm text-[var(--muted)]">Chargement…</p>

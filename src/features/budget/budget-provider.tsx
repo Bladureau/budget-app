@@ -30,6 +30,13 @@ import {
   withPause,
   withTermination,
 } from "@/features/budget/calculs";
+import {
+  buildExportFilename,
+  parseImport,
+  serializeExport,
+} from "@/features/budget/transfer";
+import type { ImportResult } from "@/features/budget/transfer";
+import { triggerDownload } from "@/lib/download";
 import type {
   BudgetDocument,
   Cents,
@@ -61,6 +68,18 @@ interface BudgetContextValue {
   addSubscription: (subscription: Omit<Subscription, "id">) => void;
   updateSubscription: (subscription: Subscription) => void;
   removeSubscription: (id: string) => void;
+
+  /**
+   * Export et import des données (fonctionnalité 004).
+   *
+   * `prepareImport` n’écrit jamais : c’est cette séparation d’avec `confirmImport` qui
+   * garantit qu’un fichier refusé ne touche pas les données (EF-026).
+   */
+  exportData: () => boolean;
+  prepareImport: (raw: string) => ImportResult;
+  confirmImport: (doc: BudgetDocument) => boolean;
+  undoImport: () => boolean;
+  canUndoImport: boolean;
 
   /** Renvoient `false` si l’opération viole un invariant du modèle. */
   changeSubscriptionAmount: (
@@ -142,6 +161,9 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
   const ready = document !== DOCUMENT_SERVEUR;
 
   const [erreurEcriture, setErreurEcriture] = useState(false);
+  // Point de restauration en mémoire, pour la session (EF-019, EF-020). Non persisté :
+  // le conserver durablement reviendrait à construire un historique de versions.
+  const [pointRestauration, setPointRestauration] = useState<BudgetDocument | null>(null);
   const [alerteMasquee, setAlerteMasquee] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<MonthKey>(moisCourant);
 
@@ -259,6 +281,48 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     [transformerAbonnement],
   );
 
+  // --- Export et import (fonctionnalité 004) -------------------------------------------
+
+  const exportData = useCallback(() => {
+    const maintenant = new Date();
+    const contenu = serializeExport(lireInstantaneClient(), maintenant);
+    return triggerDownload(contenu, buildExportFilename(maintenant));
+  }, []);
+
+  /**
+   * Analyse un fichier SANS rien écrire. C'est cette séparation d'avec `confirmImport` qui
+   * garantit qu'un fichier refusé ne touche jamais les données (EF-026).
+   */
+  const prepareImport = useCallback((raw: string) => parseImport(raw), []);
+
+  const confirmImport = useCallback(
+    (doc: BudgetDocument) => {
+      // Le point de restauration est capturé AVANT l'écriture : l'inverse le perdrait au
+      // moment précis où il sert.
+      const anterieur = lireInstantaneClient();
+      const resultat = ecrire(doc);
+      if (resultat === "writeFailed") {
+        setErreurEcriture(true);
+        return false;
+      }
+      setPointRestauration(anterieur);
+      setErreurEcriture(false);
+      return true;
+    },
+    [],
+  );
+
+  const undoImport = useCallback(() => {
+    if (!pointRestauration) return false;
+    const resultat = ecrire(pointRestauration);
+    if (resultat === "writeFailed") {
+      setErreurEcriture(true);
+      return false;
+    }
+    setPointRestauration(null);
+    return true;
+  }, [pointRestauration]);
+
   const notice: BudgetNotice = alerteMasquee
     ? null
     : erreurEcriture
@@ -288,6 +352,11 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       changeSubscriptionAmount,
       pauseSubscription,
       terminateSubscription,
+      exportData,
+      prepareImport,
+      confirmImport,
+      undoImport,
+      canUndoImport: pointRestauration !== null,
     }),
     [
       document,
@@ -304,6 +373,11 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       changeSubscriptionAmount,
       pauseSubscription,
       terminateSubscription,
+      exportData,
+      prepareImport,
+      confirmImport,
+      undoImport,
+      pointRestauration,
     ],
   );
 

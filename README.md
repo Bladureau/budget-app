@@ -18,6 +18,8 @@ récurrentes payées ?**
   signalement des mois déficitaires, liste des prochaines échéances.
 - **Cycle de vie des abonnements** : changement de tarif à une date donnée, mise en pause,
   résiliation. L'historique est conservé : les mois antérieurs ne sont jamais réécrits.
+- **Sauvegarde et restauration** : export intégral dans un fichier que vous possédez, et import
+  qui le restitue à l'identique, avec confirmation et retour arrière.
 
 ## Démarrage
 
@@ -50,12 +52,31 @@ fonctionne entièrement hors ligne.
 Conséquences à connaître :
 
 - **Les données sont propres à ce navigateur et à cet appareil.** Vider les données du site les
-  efface.
-- **Il n'y a pas encore d'export ni de sauvegarde.** Cette fonctionnalité est spécifiée
-  (`specs/004-data-export-import/`) mais pas encore développée.
+  efface — d'où l'importance de la sauvegarde décrite ci-dessous.
 
 Si le contenu enregistré devient illisible, l'application ne l'écrase jamais : elle le conserve
 sous une clé `budget-app:corrupted:<horodatage>`, redémarre sur un budget vide et vous en informe.
+
+## Sauvegarder et restaurer
+
+La section **Vos données**, en bas de l'application, est votre porte de sortie.
+
+- **Télécharger une sauvegarde** produit un fichier `budget-AAAA-MM-JJ-HHmm.json` contenant
+  l'intégralité de vos revenus et abonnements. Le nom comporte la date et l'heure, si bien que
+  plusieurs sauvegardes ne se masquent pas entre elles. Rangez-le où vous voulez : il n'est envoyé
+  nulle part.
+- **Restaurer une sauvegarde** recharge un fichier précédemment téléchargé. Avant tout
+  remplacement, un résumé vous indique ce que contient le fichier **et** ce que contient
+  l'application, et vous devez confirmer explicitement. Après l'import, un retour en arrière reste
+  possible jusqu'à la fermeture de l'application.
+
+L'import **remplace** le contenu actuel, il ne le fusionne pas. Un fichier refusé — mauvais
+fichier, version plus récente, contenu abîmé — ne modifie jamais vos données, et le message vous
+dit lequel des trois cas s'applique.
+
+Le format du fichier est documenté dans
+`specs/004-data-export-import/contracts/fichier-export.md`. Il est lisible dans un éditeur de
+texte ; les montants y sont en centimes entiers (2 400,00 € s'écrit `240000`).
 
 ## Architecture
 
@@ -68,12 +89,14 @@ src/
 ├── features/budget/
 │   ├── budget-provider.tsx   Frontière cliente : état, chargement, écriture
 │   ├── calculs.ts            Logique budgétaire pure — sous obligation de test
+│   ├── transfer.ts           Format d'échange : export et import
 │   ├── types.ts              Types du domaine
 │   └── components/           Interface
 └── lib/
     ├── money.ts              Montants en centimes entiers, analyse et formatage
     ├── date.ts               Dates calendaires, échéances, bornes de mois
     ├── format.ts             Formatage des dates et des taux
+    ├── download.ts           Téléchargement d'un fichier (API navigateur isolée)
     └── storage.ts            Document versionné, validation, quarantaine
 ```
 
@@ -89,7 +112,8 @@ Deux règles structurantes :
 - `.specify/memory/constitution.md` — les principes qui gouvernent le projet
 - `specs/002-income-subscriptions-budget/` — spécification, plan, contrats et tâches de la
   fonctionnalité implémentée ici
-- `specs/001`, `specs/003`, `specs/004` — fonctionnalités spécifiées, non encore développées
+- `specs/004-data-export-import/` — spécification, plan et contrats de la sauvegarde
+- `specs/001`, `specs/003` — fonctionnalités spécifiées, non encore développées
 
 La documentation, les spécifications, les plans et les commentaires de code sont rédigés en
 français ; les identifiants de code restent en anglais.
