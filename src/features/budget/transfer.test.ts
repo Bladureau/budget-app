@@ -37,12 +37,13 @@ const assurance: Subscription = {
 };
 
 const documentComplet: BudgetDocument = {
-  version: 1,
+  version: 2,
   incomes: [salaire, prime],
   subscriptions: [assurance],
+  expenses: [],
 };
 
-const documentVide: BudgetDocument = { version: 1, incomes: [], subscriptions: [] };
+const documentVide: BudgetDocument = { version: 2, incomes: [], subscriptions: [], expenses: [] };
 
 const DATE_EXPORT = new Date("2026-09-06T09:12:33.000Z");
 
@@ -364,7 +365,7 @@ describe("Fidélité de l’aller-retour", () => {
       amounts: [{ amountCents: 777 + i, effectiveFrom: "2026-01-07" }],
       pauses: [],
     }));
-    const volumineux: BudgetDocument = { version: 1, incomes, subscriptions };
+    const volumineux: BudgetDocument = { version: 2, incomes, subscriptions, expenses: [] };
 
     const importe = parseImport(serializeExport(volumineux, DATE_EXPORT));
     expect(importe.ok).toBe(true);
@@ -377,7 +378,7 @@ describe("Fidélité de l’aller-retour", () => {
 
   it("conserve les montants exacts au centime, montant maximal inclus (CS-004)", () => {
     const extremes: BudgetDocument = {
-      version: 1,
+      version: 2,
       incomes: [
         { id: "min", label: "Un centime", amountCents: 1, kind: "oneOff", date: "2026-01-01" },
         {
@@ -390,6 +391,7 @@ describe("Fidélité de l’aller-retour", () => {
         { id: "impair", label: "Impair", amountCents: 3333, kind: "oneOff", date: "2026-01-03" },
       ],
       subscriptions: [],
+      expenses: [],
     };
 
     const importe = parseImport(serializeExport(extremes, DATE_EXPORT));
@@ -403,7 +405,7 @@ describe("Fidélité de l’aller-retour", () => {
 
   it("restitue accents et emoji à l’identique (CS-010)", () => {
     const accentue: BudgetDocument = {
-      version: 1,
+      version: 2,
       incomes: [
         {
           id: "accents",
@@ -424,6 +426,7 @@ describe("Fidélité de l’aller-retour", () => {
           pauses: [],
         },
       ],
+      expenses: [],
     };
 
     const importe = parseImport(serializeExport(accentue, DATE_EXPORT));
@@ -432,5 +435,65 @@ describe("Fidélité de l’aller-retour", () => {
 
     expect(importe.document.incomes[0].label).toBe("Prime d’été — café & thé 🎉");
     expect(importe.document.subscriptions[0].label).toBe("Électricité ⚡ (à régler)");
+  });
+});
+
+// --- T018 : EF-024 de la fonctionnalité 004, activée par le passage en version 2 --------
+
+describe("parseImport — fichier d’une version antérieure (EF-024)", () => {
+  /**
+   * Jusqu'au passage du document en version 2, EF-024 était sans objet : il n'existait
+   * aucune version antérieure. Elle devient vérifiable ici.
+   */
+  const fichierFormat1 = JSON.stringify({
+    application: APPLICATION_MARKER,
+    formatVersion: 1,
+    exportedAt: "2026-09-06T09:12:33.000Z",
+    data: {
+      version: 1,
+      incomes: [
+        { id: "salaire", label: "Salaire", amountCents: 240000, kind: "oneOff", date: "2026-03-01" },
+      ],
+      subscriptions: [
+        {
+          id: "abo",
+          label: "Streaming",
+          periodicity: "monthly",
+          startDate: "2026-01-05",
+          endDate: null,
+          amounts: [{ amountCents: 1399, effectiveFrom: "2026-01-05" }],
+          pauses: [],
+        },
+      ],
+    },
+  });
+
+  it("accepte un export de format 1 et migre son contenu en version 2", () => {
+    const resultat = parseImport(fichierFormat1);
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+
+    expect(resultat.document.version).toBe(2);
+    expect(resultat.document.expenses).toEqual([]);
+  });
+
+  it("ne perd aucun revenu ni aucun abonnement à la migration", () => {
+    const resultat = parseImport(fichierFormat1);
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+
+    expect(resultat.document.incomes).toHaveLength(1);
+    expect(resultat.document.subscriptions).toHaveLength(1);
+    expect(resultat.document.incomes[0].amountCents).toBe(240000);
+    expect(resultat.document.subscriptions[0].amounts[0].amountCents).toBe(1399);
+  });
+
+  it("réexporte le contenu migré au format courant", () => {
+    const resultat = parseImport(fichierFormat1);
+    if (!resultat.ok) return;
+
+    const enveloppe = JSON.parse(serializeExport(resultat.document, DATE_EXPORT));
+    expect(enveloppe.formatVersion).toBe(2);
+    expect(enveloppe.data.version).toBe(2);
   });
 });

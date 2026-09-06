@@ -264,8 +264,16 @@ modification.
   journée.
 - **EF-019** : Le système DOIT afficher le report de la veille, présenté comme un gain lorsque la
   dépense de la veille a été inférieure à son allocation, et comme une perte dans le cas contraire.
-- **EF-020** : Le système DOIT conserver, pour chaque jour écoulé du mois, l'allocation qui
-  s'appliquait ce jour-là et le montant dépensé, afin de pouvoir restituer le report.
+- **EF-020** : Le système DOIT pouvoir restituer, pour chaque jour écoulé du mois, l'allocation qui
+  s'appliquait ce jour-là et le montant dépensé, afin d'en déduire le report.
+
+  > **Amendée le 2026-09-06.** La rédaction initiale imposait de *conserver* ces valeurs. La
+  > conception a montré qu'elles se déduisent intégralement du montant disponible du mois, des
+  > dépenses antérieures et du nombre de jours restants — les quatre scénarios chiffrés du récit 3
+  > se reproduisent exactement par le calcul. Les stocker créerait des trous les jours où
+  > l'application n'est pas ouverte, et imposerait une écriture hors action utilisateur. L'exigence
+  > porte donc désormais sur la **capacité à restituer**, non sur le moyen. Les neuf scénarios
+  > d'acceptation du récit 3 sont inchangés.
 - **EF-021** : Lorsque le montant restant du mois est nul ou négatif, le système DOIT afficher une
   allocation du jour nulle assortie d'un libellé explicatif.
 - **EF-022** : Le système NE DOIT PAS reporter un reliquat au-delà de la fin du mois ; l'allocation

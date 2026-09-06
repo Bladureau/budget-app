@@ -17,6 +17,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -40,6 +41,7 @@ import { triggerDownload } from "@/lib/download";
 import type {
   BudgetDocument,
   Cents,
+  Expense,
   Income,
   IsoDate,
   MonthKey,
@@ -68,6 +70,11 @@ interface BudgetContextValue {
   addSubscription: (subscription: Omit<Subscription, "id">) => void;
   updateSubscription: (subscription: Subscription) => void;
   removeSubscription: (id: string) => void;
+
+  /** Dépenses (fonctionnalité 003). */
+  addExpense: (expense: Omit<Expense, "id">) => void;
+  updateExpense: (expense: Expense) => void;
+  removeExpense: (id: string) => void;
 
   /**
    * Export et import des données (fonctionnalité 004).
@@ -167,7 +174,27 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
   const [alerteMasquee, setAlerteMasquee] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<MonthKey>(moisCourant);
 
-  const today = dateDuJour();
+  // La date du jour est un état, pas une lecture au rendu : une application de budget peut
+  // rester ouverte dans un onglet pendant des jours, et une allocation figée sur une date
+  // périmée afficherait un montant faux — pire que de ne rien afficher (EF-023).
+  const [today, setToday] = useState<IsoDate>(dateDuJour);
+
+  useEffect(() => {
+    const minuterie = setInterval(() => {
+      const maintenant = dateDuJour();
+      setToday((precedent) => {
+        if (precedent === maintenant) return precedent;
+        // Bascule du mois consulté uniquement si l'utilisateur était sur le mois courant :
+        // s'il consulte délibérément un autre mois, on ne le déplace pas.
+        setSelectedMonth((mois) =>
+          mois === monthKeyOf(precedent) ? monthKeyOf(maintenant) : mois,
+        );
+        return maintenant;
+      });
+    }, 30_000);
+
+    return () => clearInterval(minuterie);
+  }, []);
 
   const appliquer = useCallback((suivant: BudgetDocument) => {
     const resultat = ecrire(suivant);
@@ -281,6 +308,35 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     [transformerAbonnement],
   );
 
+  // --- Dépenses (fonctionnalité 003) ---------------------------------------------------
+
+  const addExpense = useCallback(
+    (depense: Omit<Expense, "id">) => {
+      const actuel = lireInstantaneClient();
+      appliquer({ ...actuel, expenses: [...actuel.expenses, { ...depense, id: newId() }] });
+    },
+    [appliquer],
+  );
+
+  const updateExpense = useCallback(
+    (depense: Expense) => {
+      const actuel = lireInstantaneClient();
+      appliquer({
+        ...actuel,
+        expenses: actuel.expenses.map((e) => (e.id === depense.id ? depense : e)),
+      });
+    },
+    [appliquer],
+  );
+
+  const removeExpense = useCallback(
+    (id: string) => {
+      const actuel = lireInstantaneClient();
+      appliquer({ ...actuel, expenses: actuel.expenses.filter((e) => e.id !== id) });
+    },
+    [appliquer],
+  );
+
   // --- Export et import (fonctionnalité 004) -------------------------------------------
 
   const exportData = useCallback(() => {
@@ -352,6 +408,9 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       changeSubscriptionAmount,
       pauseSubscription,
       terminateSubscription,
+      addExpense,
+      updateExpense,
+      removeExpense,
       exportData,
       prepareImport,
       confirmImport,
@@ -373,6 +432,9 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       changeSubscriptionAmount,
       pauseSubscription,
       terminateSubscription,
+      addExpense,
+      updateExpense,
+      removeExpense,
       exportData,
       prepareImport,
       confirmImport,

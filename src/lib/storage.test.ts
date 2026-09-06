@@ -9,8 +9,10 @@ import {
 import { DOCUMENT_VERSION, emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument } from "@/features/budget/types";
 
+// Document témoin, au format courant. Passé en version 2 par la fonctionnalité 003 : la
+// migration 1 → 2 est vérifiée séparément par le bloc « Migration 1 → 2 » plus bas.
 const documentValide: BudgetDocument = {
-  version: 1,
+  version: 2,
   incomes: [
     {
       id: "revenu-1",
@@ -39,6 +41,9 @@ const documentValide: BudgetDocument = {
       amounts: [{ amountCents: 12000, effectiveFrom: "2026-09-10" }],
       pauses: [],
     },
+  ],
+  expenses: [
+    { id: "depense-1", amountCents: 1240, date: "2026-09-06", label: "Boulangerie", category: "Courses" },
   ],
 };
 
@@ -330,5 +335,192 @@ describe("saveDocument", () => {
 
     expect(resultat).toEqual({ ok: false, reason: "writeFailed" });
     espion.mockRestore();
+  });
+});
+
+// --- Fonctionnalité 003 : migration 1 → 2 et dépenses ---------------------------------
+
+/**
+ * Document en version 1, tel qu'il existe chez un utilisateur ayant employé la
+ * fonctionnalité 002. C'est ce que la migration ne doit sous aucun prétexte abîmer.
+ */
+const documentV1 = {
+  version: 1,
+  incomes: [
+    {
+      id: "salaire",
+      label: "Salaire",
+      amountCents: 240000,
+      kind: "recurring",
+      periodicity: "monthly",
+      startDate: "2026-01-05",
+      endDate: null,
+    },
+    { id: "prime", label: "Prime", amountCents: 50000, kind: "oneOff", date: "2026-03-15" },
+    { id: "bonus", label: "Bonus", amountCents: 12345, kind: "oneOff", date: "2026-05-02" },
+  ],
+  subscriptions: [
+    {
+      id: "assurance",
+      label: "Assurance habitation",
+      periodicity: "annual",
+      startDate: "2026-09-10",
+      endDate: null,
+      amounts: [{ amountCents: 12000, effectiveFrom: "2026-09-10" }],
+      pauses: [],
+    },
+    {
+      id: "streaming",
+      label: "Streaming",
+      periodicity: "monthly",
+      startDate: "2026-01-05",
+      endDate: null,
+      amounts: [
+        { amountCents: 999, effectiveFrom: "2026-01-05" },
+        { amountCents: 1299, effectiveFrom: "2026-06-01" },
+      ],
+      pauses: [{ from: "2026-03-01", to: "2026-03-31" }],
+    },
+  ],
+};
+
+describe("Migration 1 → 2", () => {
+  it("ne perd aucun revenu ni aucun abonnement", () => {
+    const resultat = parseDocument(structuredClone(documentV1));
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+
+    expect(resultat.value.version).toBe(2);
+    expect(resultat.value.incomes).toHaveLength(3);
+    expect(resultat.value.subscriptions).toHaveLength(2);
+  });
+
+  it("reprend chaque élément à l’identique, historiques de tarifs et pauses compris", () => {
+    const resultat = parseDocument(structuredClone(documentV1));
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+
+    expect(resultat.value.incomes).toEqual(documentV1.incomes);
+    expect(resultat.value.subscriptions).toEqual(documentV1.subscriptions);
+  });
+
+  it("initialise la collection des dépenses à vide", () => {
+    const resultat = parseDocument(structuredClone(documentV1));
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.value.expenses).toEqual([]);
+  });
+
+  it("migre aussi un document v1 entièrement vide", () => {
+    const resultat = parseDocument({ version: 1, incomes: [], subscriptions: [] });
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) {
+      expect(resultat.value.version).toBe(2);
+      expect(resultat.value.expenses).toEqual([]);
+    }
+  });
+
+  it("laisse inchangé un document déjà en version 2", () => {
+    const v2 = { ...structuredClone(documentV1), version: 2, expenses: [] };
+    const resultat = parseDocument(v2);
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.value).toEqual(v2);
+  });
+
+  it("refuse une version postérieure sans y toucher", () => {
+    const resultat = parseDocument({ version: 3, incomes: [], subscriptions: [], expenses: [] });
+    expect(resultat.ok).toBe(false);
+    if (!resultat.ok) expect(resultat.reason).toBe("futureVersion");
+  });
+
+  it("survit à un aller-retour complet par le stockage", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(documentV1));
+    const charge = loadDocument();
+
+    expect(charge.quarantined).toBe(false);
+    expect(charge.document.incomes).toEqual(documentV1.incomes);
+    expect(charge.document.subscriptions).toEqual(documentV1.subscriptions);
+    expect(charge.document.version).toBe(2);
+  });
+});
+
+describe("Analyseur de dépense", () => {
+  function avecDepense(depense: unknown) {
+    return parseDocument({ version: 2, incomes: [], subscriptions: [], expenses: [depense] });
+  }
+
+  const depenseValide = {
+    id: "d1",
+    amountCents: 1240,
+    date: "2026-09-06",
+    label: "Boulangerie",
+    category: "Courses",
+  };
+
+  it("accepte une dépense complète", () => {
+    const resultat = avecDepense(depenseValide);
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.value.expenses[0]).toEqual(depenseValide);
+  });
+
+  it("accepte une dépense sans libellé ni catégorie", () => {
+    const resultat = avecDepense({ id: "d1", amountCents: 500, date: "2026-09-06" });
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.value.expenses[0].category).toBeNull();
+  });
+
+  it("accepte une catégorie à null", () => {
+    const resultat = avecDepense({ ...depenseValide, category: null });
+    expect(resultat.ok).toBe(true);
+  });
+
+  it("refuse un montant négatif, nul ou non entier", () => {
+    for (const montant of [-1, 0, 12.5, "1240", null]) {
+      expect(avecDepense({ ...depenseValide, amountCents: montant }).ok).toBe(false);
+    }
+  });
+
+  it("refuse une date calendairement impossible ou mal formée", () => {
+    for (const date of ["2026-02-31", "2026-13-01", "06/09/2026", "", 42]) {
+      expect(avecDepense({ ...depenseValide, date }).ok).toBe(false);
+    }
+  });
+
+  it("refuse un libellé vide ou trop long", () => {
+    expect(avecDepense({ ...depenseValide, label: "" }).ok).toBe(false);
+    expect(avecDepense({ ...depenseValide, label: "x".repeat(81) }).ok).toBe(false);
+  });
+
+  it("refuse une catégorie trop longue", () => {
+    expect(avecDepense({ ...depenseValide, category: "x".repeat(81) }).ok).toBe(false);
+  });
+
+  it("refuse un identifiant en doublon avec un revenu", () => {
+    const resultat = parseDocument({
+      version: 2,
+      incomes: [
+        { id: "meme", label: "Salaire", amountCents: 100, kind: "oneOff", date: "2026-01-01" },
+      ],
+      subscriptions: [],
+      expenses: [{ id: "meme", amountCents: 500, date: "2026-09-06", category: null }],
+    });
+    expect(resultat.ok).toBe(false);
+  });
+
+  it("refuse le document entier si une seule dépense est invalide", () => {
+    const resultat = parseDocument({
+      version: 2,
+      incomes: [],
+      subscriptions: [],
+      expenses: [
+        depenseValide,
+        { id: "d2", amountCents: -1, date: "2026-09-06", category: null },
+      ],
+    });
+    expect(resultat.ok).toBe(false);
+    if (!resultat.ok) expect(resultat.reason).toBe("invalidData");
+  });
+
+  it("refuse un document v2 dont la collection des dépenses est absente", () => {
+    expect(parseDocument({ version: 2, incomes: [], subscriptions: [] }).ok).toBe(false);
   });
 });

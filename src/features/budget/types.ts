@@ -89,23 +89,47 @@ export interface Subscription {
   pauses: PausePeriod[];
 }
 
+// --- Dépenses -------------------------------------------------------------------------
+
+/**
+ * Une sortie d'argent saisie par l'utilisateur (fonctionnalité 003).
+ *
+ * Aucun champ `type` : cette entité ne représente que des dépenses. Les revenus restent
+ * l'affaire de la fonctionnalité 002 et les virements sont hors périmètre — ajouter un
+ * discriminant aujourd'hui serait de la généralité spéculative (principe VI).
+ */
+export interface Expense {
+  id: Id;
+  amountCents: Cents;
+  date: IsoDate;
+  /** Facultatif : un libellé par défaut est affiché, jamais stocké. */
+  label?: string;
+  /** Facultative, pour ne pas ralentir la saisie. */
+  category: string | null;
+}
+
 // --- Document persisté ---------------------------------------------------------------
 
-export const DOCUMENT_VERSION = 1;
+/** Version 2 : ajout de la collection `expenses` (migration purement additive). */
+export const DOCUMENT_VERSION = 2;
 
 export interface BudgetDocument {
   version: number;
   incomes: Income[];
   subscriptions: Subscription[];
+  expenses: Expense[];
 }
 
 export function emptyDocument(): BudgetDocument {
-  return { version: DOCUMENT_VERSION, incomes: [], subscriptions: [] };
+  return { version: DOCUMENT_VERSION, incomes: [], subscriptions: [], expenses: [] };
 }
 
 // --- Entités dérivées (jamais persistées) --------------------------------------------
 
 export type BudgetStatus = "surplus" | "balanced" | "deficit";
+
+/** Les quatre états de l'anneau du reste mensuel (EF-011). */
+export type RingStatus = "untouched" | "inProgress" | "exhausted" | "overspent";
 
 /** Une ligne de la ventilation des charges d’un mois (EF-017). */
 export interface ChargeLine {
@@ -133,4 +157,41 @@ export interface UpcomingDue {
   label: string;
   amountCents: Cents;
   dueDate: IsoDate;
+}
+
+// --- Entités dérivées de la fonctionnalité 003 ----------------------------------------
+
+/** L'anneau du reste mensuel (EF-007 à EF-014). Jamais persisté. */
+export interface MonthlySpending {
+  month: MonthKey;
+  /** Repris de `computeMonthlyBudget().remainingCents` : revenus moins charges engagées. */
+  availableCents: Cents;
+  spentCents: Cents;
+  remainingCents: Cents;
+  /** Plafonné à 1 pour que l'anneau ne déborde pas ; 0 si le disponible est nul ou négatif. */
+  consumedRatio: number;
+  /** Montant du dépassement, 0 s'il n'y en a pas : la vue n'affiche jamais un reste négatif. */
+  overspentCents: Cents;
+  status: RingStatus;
+}
+
+/**
+ * L'allocation d'une journée (EF-015 à EF-022). **Entièrement dérivée** : rien n'est stocké
+ * pour la produire. Voir la décision D1 du plan de la fonctionnalité 003.
+ */
+export interface DailyAllowance {
+  date: IsoDate;
+  allowanceCents: Cents;
+  spentTodayCents: Cents;
+  remainingTodayCents: Cents;
+  /** `null` le premier jour du mois : il n'y a pas de veille dans ce budget. */
+  carryOverCents: Cents | null;
+  daysRemaining: number;
+}
+
+/** Une journée du journal (EF-024, EF-025). */
+export interface JournalDay {
+  date: IsoDate;
+  expenses: Expense[];
+  subtotalCents: Cents;
 }

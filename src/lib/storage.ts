@@ -19,6 +19,7 @@ import {
 import type {
   AmountPeriod,
   BudgetDocument,
+  Expense,
   Income,
   IsoDate,
   PausePeriod,
@@ -196,6 +197,36 @@ function analyserAbonnement(brut: unknown): Subscription | null {
   };
 }
 
+function analyserDepense(brut: unknown): Expense | null {
+  if (!estObjet(brut)) return null;
+  if (!identifiantValide(brut.id)) return null;
+  if (!montantValide(brut.amountCents)) return null;
+  if (!dateValide(brut.date)) return null;
+
+  // Le libellé est facultatif, mais s'il est présent il doit être exploitable : une chaîne
+  // vide serait un libellé « présent et inutile », pire qu'une absence.
+  let label: string | undefined;
+  if (brut.label !== undefined && brut.label !== null) {
+    if (!libelleValide(brut.label)) return null;
+    label = brut.label;
+  }
+
+  let category: string | null = null;
+  if (brut.category !== undefined && brut.category !== null) {
+    if (!libelleValide(brut.category)) return null;
+    category = brut.category;
+  }
+
+  const depense: Expense = {
+    id: brut.id,
+    amountCents: brut.amountCents,
+    date: brut.date,
+    category,
+  };
+  if (label !== undefined) depense.label = label;
+  return depense;
+}
+
 // --- Migrations -------------------------------------------------------------------------
 
 /**
@@ -204,8 +235,19 @@ function analyserAbonnement(brut: unknown): Subscription | null {
  * additif). Voir contracts/stockage.md.
  */
 function migrer(brut: Record<string, unknown>, depuis: number): Record<string, unknown> | null {
-  if (depuis === DOCUMENT_VERSION) return brut;
-  return null;
+  let document = brut;
+  let version = depuis;
+
+  // 1 → 2 : ajout de la collection `expenses`, PUREMENT ADDITIF. `incomes` et
+  // `subscriptions` sont repris tels quels, sans transformation : une migration qui ne
+  // modifie rien ne peut rien perdre. C'est ce qui la rend sûre, et c'est pourquoi il ne
+  // faut pas en profiter pour « nettoyer » autre chose au passage.
+  if (version === 1) {
+    document = { ...document, version: 2, expenses: [] };
+    version = 2;
+  }
+
+  return version === DOCUMENT_VERSION ? document : null;
 }
 
 // --- Analyseur du document --------------------------------------------------------------
@@ -224,7 +266,11 @@ export function parseDocument(brut: unknown): ParseResult {
   const migre = migrer(brut, version);
   if (!migre) return { ok: false, reason: "unknownVersion" };
 
-  if (!Array.isArray(migre.incomes) || !Array.isArray(migre.subscriptions)) {
+  if (
+    !Array.isArray(migre.incomes) ||
+    !Array.isArray(migre.subscriptions) ||
+    !Array.isArray(migre.expenses)
+  ) {
     return { ok: false, reason: "invalidData" };
   }
 
@@ -242,12 +288,24 @@ export function parseDocument(brut: unknown): ParseResult {
     subscriptions.push(abonnement);
   }
 
-  const identifiants = [...incomes, ...subscriptions].map((e) => e.id);
+  const expenses: Expense[] = [];
+  for (const element of migre.expenses) {
+    const depense = analyserDepense(element);
+    if (!depense) return { ok: false, reason: "invalidData" };
+    expenses.push(depense);
+  }
+
+  // L'unicité porte sur le document entier : une dépense ne peut pas partager son
+  // identifiant avec un revenu ni avec un abonnement.
+  const identifiants = [...incomes, ...subscriptions, ...expenses].map((e) => e.id);
   if (new Set(identifiants).size !== identifiants.length) {
     return { ok: false, reason: "invalidData" };
   }
 
-  return { ok: true, value: { version: DOCUMENT_VERSION, incomes, subscriptions } };
+  return {
+    ok: true,
+    value: { version: DOCUMENT_VERSION, incomes, subscriptions, expenses },
+  };
 }
 
 // --- Accès au stockage ------------------------------------------------------------------

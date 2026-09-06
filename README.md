@@ -18,6 +18,16 @@ récurrentes payées ?**
   signalement des mois déficitaires, liste des prochaines échéances.
 - **Cycle de vie des abonnements** : changement de tarif à une date donnée, mise en pause,
   résiliation. L'historique est conservé : les mois antérieurs ne sont jamais réécrits.
+- **Saisie des dépenses** en quelques secondes : le montant suffit, la date du jour est appliquée
+  par défaut.
+- **Anneau du reste mensuel** : ce qu'il vous reste à dépenser d'ici la fin du mois, avec la part
+  déjà consommée. Un dépassement s'affiche comme un montant de dépassement, jamais comme un reste
+  négatif.
+- **Allocation quotidienne fluctuante** : ce que vous pouvez dépenser aujourd'hui, obtenu en
+  répartissant le reste du mois sur les jours restants. Dépenser moins qu'un jour augmente les
+  suivants ; le report de la veille est affiché comme un gain ou une perte.
+- **Journal des dépenses** présenté comme un relevé bancaire : antéchronologique, groupé par jour
+  avec sous-totaux, recherche insensible aux accents, filtre par mois.
 - **Sauvegarde et restauration** : export intégral dans un fichier que vous possédez, et import
   qui le restitue à l'identique, avec confirmation et retour arrière.
 
@@ -45,9 +55,12 @@ considérée comme terminée.
 
 ## Où sont mes données ?
 
-Dans le `localStorage` de votre navigateur, sous la clé `budget-app:v1`, au format JSON. Elles ne
-sont transmises à aucun serveur : l'application n'a ni base de données, ni API, ni télémétrie, et
-fonctionne entièrement hors ligne.
+Dans le `localStorage` de votre navigateur, sous la clé `budget-app:v1`, au format JSON en
+version 2. Elles ne sont transmises à aucun serveur : l'application n'a ni base de données, ni API,
+ni télémétrie, et fonctionne entièrement hors ligne.
+
+> La clé nomme l'emplacement, pas la version : celle-ci vit dans le champ `version` du document, et
+> la migration depuis la version 1 est automatique et sans perte.
 
 Conséquences à connaître :
 
@@ -89,6 +102,7 @@ src/
 ├── features/budget/
 │   ├── budget-provider.tsx   Frontière cliente : état, chargement, écriture
 │   ├── calculs.ts            Logique budgétaire pure — sous obligation de test
+│   ├── expenses.ts           Anneau, allocation quotidienne, journal — sous obligation de test
 │   ├── transfer.ts           Format d'échange : export et import
 │   ├── types.ts              Types du domaine
 │   └── components/           Interface
@@ -104,6 +118,8 @@ Deux règles structurantes :
 
 - **Les montants sont des entiers de centimes**, partout. Aucune valeur monétaire décimale
   n'existe hors de la frontière d'affichage : c'est ce qui garantit l'exactitude au centime.
+  L'allocation quotidienne est tronquée au centime inférieur, de sorte que la somme des allocations
+  restantes n'excède jamais ce dont vous disposez réellement.
 - **Toute donnée lue depuis le stockage est validée à l'exécution** avant d'être typée, jamais
   transtypée.
 
@@ -113,7 +129,8 @@ Deux règles structurantes :
 - `specs/002-income-subscriptions-budget/` — spécification, plan, contrats et tâches de la
   fonctionnalité implémentée ici
 - `specs/004-data-export-import/` — spécification, plan et contrats de la sauvegarde
-- `specs/001`, `specs/003` — fonctionnalités spécifiées, non encore développées
+- `specs/003-daily-allowance-dashboard/` — spécification, plan et contrats du tableau de bord
+- `specs/001` — fonctionnalité spécifiée, non encore développée
 
 La documentation, les spécifications, les plans et les commentaires de code sont rédigés en
 français ; les identifiants de code restent en anglais.

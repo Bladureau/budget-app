@@ -50,3 +50,34 @@ export const EXPORT_REFLECTS_SAVED_DATA =
 
 export const DATA_STAYS_LOCAL =
   "Le fichier est enregistré sur cet appareil et n’est envoyé nulle part.";
+
+// --- Dépenses et anneau (fonctionnalité 003) ------------------------------------------
+
+import type { RingStatus } from "@/features/budget/types";
+
+/**
+ * Libellés des quatre états de l'anneau. Le principe VII interdit que la couleur porte
+ * seule l'information : ces libellés sont la source, la couleur ne fait que renforcer.
+ */
+export const RING_STATUS_LABELS: Readonly<Record<RingStatus, string>> = {
+  untouched: "Rien de dépensé",
+  inProgress: "En cours",
+  exhausted: "Budget épuisé",
+  overspent: "Dépassement",
+};
+
+export const NO_BUDGET_YET =
+  "Renseignez vos revenus et vos abonnements ci-dessous pour connaître ce qu’il vous reste à dépenser.";
+
+export const NOTHING_LEFT_TO_SPREAD =
+  "Il n’y a plus rien à répartir sur les jours restants de ce mois.";
+
+export const NO_CARRY_OVER = "Premier jour du mois : pas de report.";
+
+export const EMPTY_JOURNAL =
+  "Aucune dépense enregistrée. Saisissez-en une ci-dessus pour commencer.";
+
+export const NO_SEARCH_RESULT = "Aucune dépense ne correspond à cette recherche.";
+
+export const EXPENSE_DELETE_CONFIRM =
+  "Supprimer cette dépense ? Elle sera retirée de vos totaux.";

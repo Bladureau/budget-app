@@ -309,7 +309,7 @@ function documentAvec(
   incomes: Income[],
   subscriptions: Subscription[],
 ): BudgetDocument {
-  return { version: 1, incomes, subscriptions };
+  return { version: 2, incomes, subscriptions, expenses: [] };
 }
 
 describe("computeMonthlyBudget", () => {
