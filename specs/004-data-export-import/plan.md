@@ -117,6 +117,7 @@ src/
 ├── features/budget/
 │   ├── transfer.ts                   # Enveloppe, sérialisation, analyse d'un fichier
 │   ├── transfer.test.ts              # Aller-retour, refus, exactitude au centime
+│   ├── data-transfer.test.tsx        # Intégration : aperçu, confirmation, retour arrière
 │   └── components/
 │       ├── data-transfer.tsx         # Section « Vos données » : export et import
 │       ├── import-preview.tsx        # Résumé, avertissement, confirmation
@@ -131,7 +132,7 @@ Fichiers **modifiés** :
 ```text
 src/
 ├── features/budget/
-│   ├── budget-provider.tsx           # Actions exportData, importDocument, undoImport
+│   ├── budget-provider.tsx           # exportData, prepareImport, confirmImport, undoImport
 │   ├── messages.ts                   # Messages de refus et de compte rendu
 │   └── components/budget-view.tsx    # Insertion de la section de transfert
 └── app/globals.css                   # Rien de nouveau attendu ; à vérifier seulement

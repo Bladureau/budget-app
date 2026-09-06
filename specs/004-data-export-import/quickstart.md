@@ -59,11 +59,19 @@ montants et dates sont reconnaissables sans outil ; l'en-tête porte `applicatio
 
 > Vérifier au passage que les montants sont en centimes : 2 400,00 € apparaît comme `240000`.
 
+**Compter les actions** nécessaires pour obtenir la sauvegarde, à partir de l'écran principal
+(CS-001). **Attendu** : trois au maximum. Au-delà, la porte de sortie est trop coûteuse à emprunter
+pour être empruntée régulièrement.
+
 ### 3. Restauration dans une application vide (récit 2)
 
 Vider les données du site, recharger, puis importer le fichier de l'étape 2. **Attendu** : aperçu
 présenté avant tout remplacement ; après confirmation, les quatre éléments sont revenus à
 l'identique, et les totaux mensuels sont exactement ceux d'avant l'export.
+
+Recharger ensuite la page. **Attendu** : les données importées sont toujours là (EF-015). Ce second
+rechargement n'est pas redondant avec le premier : celui-ci vérifiait que l'application démarrait à
+vide, celui-là vérifie que l'import a bien été **écrit** et non seulement affiché.
 
 ### 4. Aller-retour complet (EF-011, CS-003)
 

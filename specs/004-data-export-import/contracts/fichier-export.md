@@ -98,6 +98,13 @@ Elle ne couvre volontairement pas `exportedAt`, qui diffère par construction.
 | 1 | `data` en version 1 : revenus et abonnements | Courante |
 | 2 | Réservée à la fonctionnalité 003 : ajout des dépenses. Ajout purement additif ; la migration ascendante est celle du document, déjà prévue par le contrat de stockage de 002. | À venir |
 
+> **EF-024 est sans effet tant que la version 1 est la seule existante.** Accepter et migrer un
+> fichier d'une version antérieure n'est ni implémentable ni testable aujourd'hui : il n'existe aucune
+> version antérieure. L'exigence s'activera avec la version 2, introduite par la fonctionnalité 003 ;
+> c'est à ce moment-là que la migration ascendante devra être branchée sur le chemin d'import et
+> couverte par un test. Ce n'est donc pas un oubli de couverture, mais une exigence en attente de son
+> déclencheur.
+
 Règles applicables à toute version future :
 
 - une version **inférieure** est acceptée et migrée par le chemin de migration du document (EF-024) ;

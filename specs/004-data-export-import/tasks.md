@@ -81,7 +81,7 @@ qu'il contient tous les éléments enregistrés et qu'il est lisible.
 ### Implémentation du récit 1
 
 - [ ] T012 [US1] Ajouter l'action `exportData()` au fournisseur `src/features/budget/budget-provider.tsx` : sérialise le document courant via `serializeExport()`, déclenche `triggerDownload()`, renvoie `false` en cas d'échec sans rien écrire
-- [ ] T013 [US1] Créer `src/features/budget/components/data-transfer.tsx` : section « Vos données » avec le bouton d'export et la phrase rappelant que les données ne quittent pas l'appareil
+- [ ] T013 [US1] Créer `src/features/budget/components/data-transfer.tsx` : section « Vos données » avec le bouton d'export, la phrase rappelant que les données ne quittent pas l'appareil, et la mention exigée par EF-008 indiquant que la sauvegarde porte sur les données enregistrées et non sur une saisie en cours
 - [ ] T014 [US1] Implémenter dans `data-transfer.tsx` l'état d'échec d'export (EF-007) : message textuel expliquant que la sauvegarde n'a pas pu être produite, jamais d'échec silencieux
 - [ ] T015 [US1] Câbler `<DataTransfer />` en pied de la vue dans `src/features/budget/components/budget-view.tsx`
 
@@ -253,3 +253,8 @@ l'import utilisable sans crainte.
   ce sont les deux seuls points de contention en travail parallèle.
 - **Ne jamais réimplémenter une règle de validation du document** : `parseDocument()` est le seul
   validateur. T035 le vérifie explicitement en fin de parcours.
+- **EF-024 n'a délibérément aucune tâche.** Accepter et migrer un fichier d'une version antérieure du
+  format est sans objet tant que la version 1 est la seule qui existe. L'exigence s'activera avec la
+  version 2, introduite par la fonctionnalité 003 : la migration devra alors être branchée sur le
+  chemin d'import et couverte par un test. Voir l'encadré de
+  [contracts/fichier-export.md](./contracts/fichier-export.md).

@@ -81,3 +81,8 @@ Ce sont les exigences dont dépend la confiance dans la fonctionnalité.
 4. Le retour arrière est atteignable en **une seule action** tant que la session dure (CS-006).
 5. Le fichier exporté n'est transmis à aucun service : aucune requête réseau n'accompagne l'export
    (EF-028, principe I).
+6. **L'export porte sur l'état enregistré, jamais sur une saisie en cours** (EF-008). C'est acquis par
+   construction — le fournisseur n'expose que le document persisté, et un formulaire non validé
+   n'existe que dans l'état local de son composant. La section de transfert **doit néanmoins l'énoncer
+   à l'utilisateur** : sans cette mention, quelqu'un ayant un formulaire à demi rempli à l'écran peut
+   légitimement croire que son contenu part dans la sauvegarde.
