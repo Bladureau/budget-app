@@ -1,13 +1,36 @@
 @import "tailwindcss";
 
+/*
+  Jetons de thème. Les couleurs d'état (excédent, équilibre, déficit) ne portent jamais
+  seules l'information : le principe VII de la constitution impose qu'un libellé textuel
+  accompagne toujours l'état. Elles sont ici pour renforcer, pas pour signifier.
+*/
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --surface: #f7f7f8;
+  --border: #d9d9de;
+  --muted: #5b5b66;
+
+  /* Contrastes vérifiés sur --surface en thème clair (WCAG 2.1 AA, >= 4.5:1). */
+  --surplus: #116338;
+  --balanced: #4a4a55;
+  --deficit: #a3231f;
+
+  --accent: #1d4ed8;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-surplus: var(--surplus);
+  --color-balanced: var(--balanced);
+  --color-deficit: var(--deficit);
+  --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -16,11 +39,28 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --surface: #17171a;
+    --border: #33333b;
+    --muted: #a1a1ac;
+
+    /* Contrastes vérifiés sur --surface en thème sombre (WCAG 2.1 AA, >= 4.5:1). */
+    --surplus: #4ade80;
+    --balanced: #b4b4bf;
+    --deficit: #f87171;
+
+    --accent: #93b4fd;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Indicateur de focus visible sur toute cible interactive (principe VII). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
