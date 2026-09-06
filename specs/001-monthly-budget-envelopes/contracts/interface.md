@@ -29,6 +29,7 @@ ses dépenses, mais plus souvent que son prévisionnel mensuel.
 | Aucune enveloppe | Le mois n'a aucun plafond | Invitation à en définir un, et **total non budgété** si des dépenses existent (EF-012). Pas un état d'erreur. |
 | Enveloppes définies | Au moins un plafond | Liste avec plafond, dépensé, restant, progression et état. |
 | Enveloppe non entamée | Aucune dépense | Progression nulle, libellé « non entamée ». |
+| Maîtrisée | Dépensé supérieur à zéro et inférieur à 85 % du plafond | Progression proportionnelle, libellé « maîtrisée ». C'est l'état courant d'une enveloppe en cours de mois. |
 | Proche du plafond | Dépensé ≥ 85 % du plafond | Libellé « proche du plafond » (EF-015). |
 | En dépassement | Dépensé > plafond | **Montant du dépassement** affiché, jamais un reste négatif (EF-016). Progression plafonnée au tour complet. |
 | Mois précédent vide | Report demandé sans source | Action indisponible, message expliquant qu'il n'y a rien à copier. |
@@ -36,14 +37,17 @@ ses dépenses, mais plus souvent que son prévisionnel mensuel.
 
 ## Invariants de la liste
 
-1. Chaque enveloppe affiche **plafond, dépensé et restant** (EF-011).
-2. L'état est porté par un **libellé textuel** en plus de la couleur et de la progression (EF-017) :
+1. La section affiche **les enveloppes et les dépenses du mois consulté** par le sélecteur de mois
+   déjà en place (EF-019). Elle n'introduit pas de second sélecteur : changer de mois dans l'en-tête
+   change ce que la section montre, sans action supplémentaire.
+2. Chaque enveloppe affiche **plafond, dépensé et restant** (EF-011).
+3. L'état est porté par un **libellé textuel** en plus de la couleur et de la progression (EF-017) :
    retirer la couleur ne doit rien faire perdre (CS-006).
-3. La barre de progression est **décorative** (`aria-hidden`), plafonnée au tour complet, et sans
+4. La barre de progression est **décorative** (`aria-hidden`), plafonnée au tour complet, et sans
    animation sous `prefers-reduced-motion`.
-4. Un dépassement s'affiche comme un **montant de dépassement libellé**, jamais comme un reste
+5. Un dépassement s'affiche comme un **montant de dépassement libellé**, jamais comme un reste
    négatif.
-5. Le regroupement **« Non budgété »** affiche son total et sa ventilation, en indiquant qu'il couvre
+6. Le regroupement **« Non budgété »** affiche son total et sa ventilation, en indiquant qu'il couvre
    les catégories non plafonnées **et** les dépenses sans catégorie.
 
 ## Invariants de la synthèse

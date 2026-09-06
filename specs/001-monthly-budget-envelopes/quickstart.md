@@ -103,6 +103,10 @@ synthèse.
 Depuis un mois pourvu, aller au mois suivant et copier les plafonds. **Attendu** : mêmes catégories,
 mêmes montants, dépensés repartant de zéro.
 
+**Compter les actions** nécessaires pour reproduire le plan du mois précédent, une fois placé sur le
+mois cible (CS-005). **Attendu** : **une seule**. Au-delà, le report ne dispense pas assez de la
+ressaisie pour être employé.
+
 Recommencer sur un mois déjà pourvu. **Attendu** : avertissement et confirmation avant remplacement.
 
 Essayer depuis un mois vide. **Attendu** : action indisponible ou message indiquant qu'il n'y a rien à
@@ -112,6 +116,10 @@ copier.
 
 Modifier un plafond du mois courant, puis revenir sur les trois mois précédents. **Attendu** : aucun
 de leurs montants n'a changé.
+
+Vérifier au passage que **la section des enveloppes suit le sélecteur de mois de l'en-tête** (EF-019) :
+changer de mois change les enveloppes et les dépensés affichés, sans second sélecteur ni action
+supplémentaire.
 
 ### 10. Catégorie renommée (cas limite, décision D3)
 
