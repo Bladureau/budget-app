@@ -28,6 +28,17 @@ récurrentes payées ?**
   suivants ; le report de la veille est affiché comme un gain ou une perte.
 - **Journal des dépenses** présenté comme un relevé bancaire : antéchronologique, groupé par jour
   avec sous-totaux, recherche insensible aux accents, filtre par mois.
+- **Enveloppes budgétaires** : un plafond de dépense par catégorie et par mois, confronté à la
+  dépense réelle. Chaque enveloppe affiche son plafond, son dépensé et son restant, et porte un
+  **libellé d'état** — non entamée, maîtrisée, proche du plafond, en dépassement — de sorte que
+  retirer la couleur ne fasse rien perdre. L'alerte se déclenche à **85 %** du plafond, comparés
+  par multiplication entière et non par division. Un plafond de zéro est valide : il signifie
+  « ne rien dépenser ici ».
+- **Regroupement « non budgété »** : les dépenses qui ne relèvent d'aucun plafond du mois, qu'il
+  s'agisse d'une catégorie non plafonnée ou d'une dépense sans catégorie, avec leur ventilation.
+- **Report des plafonds** d'un mois sur le suivant, en une action, avec confirmation avant tout
+  remplacement. Les copies sont indépendantes : ajuster un plafond ne touche pas le mois d'origine,
+  et les montants dépensés repartent de zéro.
 - **Sauvegarde et restauration** : export intégral dans un fichier que vous possédez, et import
   qui le restitue à l'identique, avec confirmation et retour arrière.
 
@@ -56,11 +67,12 @@ considérée comme terminée.
 ## Où sont mes données ?
 
 Dans le `localStorage` de votre navigateur, sous la clé `budget-app:v1`, au format JSON en
-version 2. Elles ne sont transmises à aucun serveur : l'application n'a ni base de données, ni API,
+version 3. Elles ne sont transmises à aucun serveur : l'application n'a ni base de données, ni API,
 ni télémétrie, et fonctionne entièrement hors ligne.
 
 > La clé nomme l'emplacement, pas la version : celle-ci vit dans le champ `version` du document, et
-> la migration depuis la version 1 est automatique et sans perte.
+> la migration est automatique et sans perte. Chaque étape n'ajoute qu'un champ sans jamais en
+> retirer, et les étapes se composent : un document en version 1 traverse 1 → 2 → 3 d'affilée.
 
 Conséquences à connaître :
 
@@ -103,6 +115,7 @@ src/
 │   ├── budget-provider.tsx   Frontière cliente : état, chargement, écriture
 │   ├── calculs.ts            Logique budgétaire pure — sous obligation de test
 │   ├── expenses.ts           Anneau, allocation quotidienne, journal — sous obligation de test
+│   ├── envelopes.ts          Plafonds par catégorie, états, alerte — sous obligation de test
 │   ├── transfer.ts           Format d'échange : export et import
 │   ├── types.ts              Types du domaine
 │   └── components/           Interface

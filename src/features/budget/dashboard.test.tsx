@@ -23,7 +23,7 @@ function aujourdHui(): string {
 /** Document de départ : 900,00 € disponibles ce mois, aucune dépense. */
 function documentAvecBudget(expenses: BudgetDocument["expenses"] = []): BudgetDocument {
   return {
-    version: 2,
+    version: 3,
     incomes: [
       {
         id: "revenu",
@@ -35,6 +35,7 @@ function documentAvecBudget(expenses: BudgetDocument["expenses"] = []): BudgetDo
     ],
     subscriptions: [],
     expenses,
+    envelopes: [],
   };
 }
 
@@ -133,7 +134,7 @@ describe("Tableau de bord — saisie d'une dépense (scénario 2)", () => {
 
     await waitFor(() => {
       const doc = documentStocke();
-      expect(doc?.version).toBe(2);
+      expect(doc?.version).toBe(3);
       expect(doc?.expenses).toHaveLength(1);
       expect(doc?.expenses[0]).toMatchObject({ amountCents: 3333, date: aujourdHui() });
     });
@@ -198,7 +199,7 @@ describe("Tableau de bord — anneau et allocation", () => {
   it("invite à renseigner un budget quand il n'y en a pas (EF-014)", async () => {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ version: 2, incomes: [], subscriptions: [], expenses: [] }),
+      JSON.stringify({ version: 3, incomes: [], subscriptions: [], expenses: [], envelopes: [] }),
     );
     await monterVue();
 

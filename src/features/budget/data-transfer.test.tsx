@@ -14,7 +14,7 @@ import type { BudgetDocument } from "@/features/budget/types";
  */
 
 const documentInitial: BudgetDocument = {
-  version: 2,
+  version: 3,
   incomes: [
     {
       id: "initial",
@@ -26,10 +26,11 @@ const documentInitial: BudgetDocument = {
   ],
   subscriptions: [],
   expenses: [],
+  envelopes: [],
 };
 
 const documentImporte: BudgetDocument = {
-  version: 2,
+  version: 3,
   incomes: [
     {
       id: "importe-1",
@@ -58,6 +59,7 @@ const documentImporte: BudgetDocument = {
     },
   ],
   expenses: [],
+  envelopes: [],
 };
 
 function fichierExport(data: unknown = documentImporte, surcharge = {}): string {

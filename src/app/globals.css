@@ -16,6 +16,7 @@
   /* Contrastes vérifiés sur --surface en thème clair (WCAG 2.1 AA, >= 4.5:1). */
   --surplus: #116338;
   --balanced: #4a4a55;
+  --warning: #8a5200;
   --deficit: #a3231f;
 
   --accent: #1d4ed8;
@@ -29,6 +30,7 @@
   --color-muted: var(--muted);
   --color-surplus: var(--surplus);
   --color-balanced: var(--balanced);
+  --color-warning: var(--warning);
   --color-deficit: var(--deficit);
   --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
@@ -47,6 +49,7 @@
     /* Contrastes vérifiés sur --surface en thème sombre (WCAG 2.1 AA, >= 4.5:1). */
     --surplus: #4ade80;
     --balanced: #b4b4bf;
+    --warning: #fbbf24;
     --deficit: #f87171;
 
     --accent: #93b4fd;

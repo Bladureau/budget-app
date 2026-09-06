@@ -81,3 +81,51 @@ export const NO_SEARCH_RESULT = "Aucune dépense ne correspond à cette recherch
 
 export const EXPENSE_DELETE_CONFIRM =
   "Supprimer cette dépense ? Elle sera retirée de vos totaux.";
+
+// --- Enveloppes budgétaires (fonctionnalité 001) --------------------------------------
+
+import type { EnvelopeState } from "@/features/budget/types";
+import type { LimitError } from "@/lib/money";
+
+/**
+ * Libellés des quatre états d'enveloppe (EF-017). Comme pour l'anneau, ils sont la source de
+ * l'information : la couleur ne fait que renforcer ce que le texte dit déjà.
+ */
+export const ENVELOPE_STATE_LABELS: Readonly<Record<EnvelopeState, string>> = {
+  unused: "Non entamée",
+  onTrack: "Maîtrisée",
+  nearingLimit: "Proche du plafond",
+  overBudget: "En dépassement",
+};
+
+export const NO_ENVELOPE_YET =
+  "Aucun plafond défini pour ce mois. Ajoutez-en un pour suivre vos dépenses par catégorie.";
+
+export const UNBUDGETED_EXPLANATION =
+  "Dépenses sans plafond : catégories non budgétées et dépenses sans catégorie.";
+
+export const ZERO_LIMIT_MEANING =
+  "Un plafond de 0,00 € signifie « ne rien dépenser dans cette catégorie ».";
+
+export const ENVELOPE_DELETE_HINT =
+  "Ses dépenses basculeront dans « Non budgété ».";
+
+export const NOTHING_TO_COPY =
+  "Le mois précédent ne comporte aucun plafond : il n’y a rien à copier.";
+
+export const COPY_REPLACE_CONFIRM =
+  "Ce mois comporte déjà des plafonds. Les copier remplacera ceux qui existent.";
+
+export const CATEGORY_REQUIRED = "Saisissez une catégorie.";
+
+/**
+ * Refus d'un plafond. Le message du négatif dit « négatif » et non « supérieur à zéro » :
+ * zéro est ici accepté, et un message qui l'exclurait serait faux.
+ */
+export const LIMIT_ERROR_MESSAGES: Readonly<Record<LimitError, string>> = {
+  empty: "Saisissez un plafond.",
+  notANumber: "Le plafond doit être un nombre, par exemple 400 ou 250,50.",
+  tooManyDecimals: "Le plafond ne peut pas comporter plus de deux décimales.",
+  negative: "Le plafond ne peut pas être négatif. Zéro est accepté.",
+  tooLarge: "Le plafond est trop élevé.",
+};

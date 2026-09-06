@@ -25,6 +25,7 @@ import {
 import type { ReactNode } from "react";
 import { loadDocument, newId, saveDocument } from "@/lib/storage";
 import { addMonthsToKey, monthKeyOf } from "@/lib/date";
+import { copyEnvelopesToMonth, findEnvelope } from "@/features/budget/envelopes";
 import { emptyDocument } from "@/features/budget/types";
 import {
   withAmountChange,
@@ -41,6 +42,7 @@ import { triggerDownload } from "@/lib/download";
 import type {
   BudgetDocument,
   Cents,
+  Envelope,
   Expense,
   Income,
   IsoDate,
@@ -70,6 +72,12 @@ interface BudgetContextValue {
   addSubscription: (subscription: Omit<Subscription, "id">) => void;
   updateSubscription: (subscription: Subscription) => void;
   removeSubscription: (id: string) => void;
+
+  /** Enveloppes budgétaires (fonctionnalité 001). */
+  setEnvelopeLimit: (category: string, month: MonthKey, limitCents: Cents) => void;
+  removeEnvelope: (id: string) => void;
+  /** Renvoie `false` si le mois précédent ne comporte aucun plafond. */
+  copyEnvelopesFromPreviousMonth: (month: MonthKey) => boolean;
 
   /** Dépenses (fonctionnalité 003). */
   addExpense: (expense: Omit<Expense, "id">) => void;
@@ -308,6 +316,54 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     [transformerAbonnement],
   );
 
+  // --- Enveloppes budgétaires (fonctionnalité 001) --------------------------------------
+
+  /** Crée l'enveloppe du couple, ou met à jour son plafond : jamais de doublon (EF-005). */
+  const setEnvelopeLimit = useCallback(
+    (category: string, month: MonthKey, limitCents: Cents) => {
+      const actuel = lireInstantaneClient();
+      const existante = findEnvelope(actuel.envelopes, category, month);
+
+      const envelopes: Envelope[] = existante
+        ? actuel.envelopes.map((e) =>
+            e.id === existante.id ? { ...e, limitCents } : e,
+          )
+        : [...actuel.envelopes, { id: newId(), category, month, limitCents }];
+
+      appliquer({ ...actuel, envelopes });
+    },
+    [appliquer],
+  );
+
+  const removeEnvelope = useCallback(
+    (id: string) => {
+      const actuel = lireInstantaneClient();
+      appliquer({ ...actuel, envelopes: actuel.envelopes.filter((e) => e.id !== id) });
+    },
+    [appliquer],
+  );
+
+  /**
+   * Copie les plafonds du mois précédent vers `month`, en **remplaçant** ceux qui s'y
+   * trouvent. La confirmation est recueillie par l'interface (EF-021) : ce fournisseur ne
+   * fait qu'appliquer une décision déjà prise.
+   */
+  const copyEnvelopesFromPreviousMonth = useCallback(
+    (month: MonthKey) => {
+      const actuel = lireInstantaneClient();
+      const precedent = addMonthsToKey(month, -1);
+      const copies = copyEnvelopesToMonth(actuel.envelopes, precedent, month);
+      if (copies.length === 0) return false;
+
+      appliquer({
+        ...actuel,
+        envelopes: [...actuel.envelopes.filter((e) => e.month !== month), ...copies],
+      });
+      return true;
+    },
+    [appliquer],
+  );
+
   // --- Dépenses (fonctionnalité 003) ---------------------------------------------------
 
   const addExpense = useCallback(
@@ -408,6 +464,9 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       changeSubscriptionAmount,
       pauseSubscription,
       terminateSubscription,
+      setEnvelopeLimit,
+      removeEnvelope,
+      copyEnvelopesFromPreviousMonth,
       addExpense,
       updateExpense,
       removeExpense,
@@ -432,6 +491,9 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       changeSubscriptionAmount,
       pauseSubscription,
       terminateSubscription,
+      setEnvelopeLimit,
+      removeEnvelope,
+      copyEnvelopesFromPreviousMonth,
       addExpense,
       updateExpense,
       removeExpense,

@@ -140,6 +140,36 @@ Réimporter : accepté, enveloppes restaurées.
 - Zoom 200 % : aucune perte d'information.
 - Réduction des animations activée : la progression ne s'anime plus.
 
+## Relevé de validation — 2026-09-07
+
+Consigné à l'exécution de T046. **Distinction importante** : je n'ai pas de navigateur. Chaque
+scénario est donc marqué selon ce qui a réellement été exercé, et ceux qui exigent un œil humain
+restent à la charge de l'utilisateur.
+
+| # | Scénario | Vérifié | Par quoi |
+| --- | --- | --- | --- |
+| 1 | Migration d'un budget existant | ✅ automatisé | 13 tests de migration dans `src/lib/storage.test.ts` : v2 → v3 sans perte de dépense, de revenu ni d'abonnement ; v1 traverse les deux étapes ; aller-retour complet par le stockage ; document déjà en v3 laissé intact |
+| 2 | Définir, modifier, supprimer un plafond | ✅ automatisé | `envelopes.integration.test.tsx` : création, persistance en centimes entiers, réinitialisation des champs, mise à jour sans doublon (EF-005), suppression et bascule en non budgété. **Le chronométrage des deux minutes (CS-001) reste manuel** ; le mécanisme dont il dépend — la réinitialisation immédiate — est testé |
+| 3 | Refus de saisie | ✅ automatisé | Plafond négatif et catégorie vide refusés **sans écriture** ; `abc` et `1,234` refusés par `parseLimitInput` ; `0` accepté et sa signification affichée |
+| 4 | Suivi de la consommation | ✅ automatisé | Dépense saisie → enveloppe mise à jour sans rafraîchissement ; dépense d'un autre mois ignorée ; **suppression d'une dépense** → dépensé recalculé (200,00 € → 79,50 €) |
+| 5 | Le hors-enveloppe | ✅ automatisé | Catégorie non plafonnée **et** dépense sans catégorie regroupées, total et ventilation exacts |
+| 6 | Les quatre états et le seuil | ✅ automatisé | 38 tests unitaires dans `envelopes.test.ts` plus l'intégration : 339,99 € → maîtrisée, 340,00 € → proche du plafond, dépassement affiché en montant positif, aucun reste négatif dans la ligne |
+| 7 | Synthèse des dépassements | ⚠️ partiel | Le **contenu** est vérifié (« 2 enveloppes en dépassement · 30,00 € »). Le **délai de cinq secondes** (CS-002) est une mesure d'usage : non vérifiable ici |
+| 8 | Report des plafonds | ✅ automatisé | Copie en **une seule action** (CS-005), nouveaux identifiants, dépensés repartant de zéro ; confirmation avant remplacement, avec vérification qu'annuler n'écrit rien ; action désactivée et expliquée si le mois précédent est vide |
+| 9 | Isolation des mois | ✅ automatisé | `envelopes.test.ts` sur trois mois consécutifs, plus l'intégration : la section suit le sélecteur de l'en-tête (EF-019), sans second sélecteur, et revenir en arrière retrouve le mois intact |
+| 10 | Catégorie renommée | ✅ automatisé | Couvert par la règle d'affectation : l'égalité de chaîne est testée dans les deux sens, l'enveloppe subsiste avec un dépensé diminué |
+| 11 | Export après migration | ✅ automatisé | Quatre tests ajoutés à `transfer.test.ts` : `formatVersion` 3, collection `envelopes` exportée, aller-retour à l'identique **plafond nul compris**, plafond négatif et doublon de couple refusés à l'import |
+| 12 | Accessibilité | ⚠️ partiel | Vérifié : rôles, noms accessibles, messages d'erreur rattachés, barre de progression `aria-hidden`, confirmation actionnable au clavier. Contrastes de `--warning` **calculés** : 6,0:1 en thème clair, 10,9:1 en sombre (AA). **Restent à l'œil** : focus visible, niveaux de gris, 360 px, zoom 200 %, réduction des animations |
+
+### Défaut trouvé pendant la validation, corrigé
+
+Le scénario 4 a mis au jour un défaut **pré-existant**, hors périmètre de cette fonctionnalité : le
+motif `Détail<span className="sr-only"> de …</span>` perd son espace de tête au calcul du nom
+accessible. Un lecteur d'écran annonçait « Détailde Marché du 07/09/2026 ». Six boutons étaient
+touchés, dans `expense-journal.tsx` (003), `income-list.tsx` et `subscription-list.tsx` (002), plus
+les trois boutons ajoutés ici. Tous portent désormais un `aria-label` explicite. Le défaut n'était
+pas détectable par lecture : il fallait interroger l'arbre d'accessibilité.
+
 ## Critères de clôture
 
 1. `npm run build`, `npm run lint` et `npm run test` passent sans erreur ;

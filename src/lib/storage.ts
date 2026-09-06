@@ -10,7 +10,7 @@
  *    document illisible n’est PAS écrasé, il est mis en quarantaine sous une clé distincte.
  */
 
-import { compareIso, isValidIsoDate } from "@/lib/date";
+import { compareIso, isValidIsoDate, isValidMonthKey } from "@/lib/date";
 import {
   DOCUMENT_VERSION,
   MONTHS_PER_PERIOD,
@@ -19,6 +19,7 @@ import {
 import type {
   AmountPeriod,
   BudgetDocument,
+  Envelope,
   Expense,
   Income,
   IsoDate,
@@ -227,6 +228,33 @@ function analyserDepense(brut: unknown): Expense | null {
   return depense;
 }
 
+function analyserEnveloppe(brut: unknown): Envelope | null {
+  if (!estObjet(brut)) return null;
+  if (!identifiantValide(brut.id)) return null;
+  if (!libelleValide(brut.category)) return null;
+  if (typeof brut.month !== "string" || !isValidMonthKey(brut.month)) return null;
+
+  // Seule exception du projet à `montantValide` : un plafond de zéro est une intention
+  // explicite — « ne rien dépenser ici » — et non l'absence de valeur, laquelle se traduit
+  // par l'absence d'enveloppe.
+  const plafond = brut.limitCents;
+  if (
+    typeof plafond !== "number" ||
+    !Number.isInteger(plafond) ||
+    plafond < 0 ||
+    plafond > MAX_CENTS
+  ) {
+    return null;
+  }
+
+  return {
+    id: brut.id,
+    category: brut.category,
+    month: brut.month,
+    limitCents: plafond,
+  };
+}
+
 // --- Migrations -------------------------------------------------------------------------
 
 /**
@@ -245,6 +273,13 @@ function migrer(brut: Record<string, unknown>, depuis: number): Record<string, u
   if (version === 1) {
     document = { ...document, version: 2, expenses: [] };
     version = 2;
+  }
+
+  // 2 → 3 : ajout de la collection `envelopes`, également purement additif. Les deux étapes
+  // se composent : un document en version 1 les traverse toutes les deux.
+  if (version === 2) {
+    document = { ...document, version: 3, envelopes: [] };
+    version = 3;
   }
 
   return version === DOCUMENT_VERSION ? document : null;
@@ -269,7 +304,8 @@ export function parseDocument(brut: unknown): ParseResult {
   if (
     !Array.isArray(migre.incomes) ||
     !Array.isArray(migre.subscriptions) ||
-    !Array.isArray(migre.expenses)
+    !Array.isArray(migre.expenses) ||
+    !Array.isArray(migre.envelopes)
   ) {
     return { ok: false, reason: "invalidData" };
   }
@@ -295,16 +331,31 @@ export function parseDocument(brut: unknown): ParseResult {
     expenses.push(depense);
   }
 
-  // L'unicité porte sur le document entier : une dépense ne peut pas partager son
-  // identifiant avec un revenu ni avec un abonnement.
-  const identifiants = [...incomes, ...subscriptions, ...expenses].map((e) => e.id);
+  const envelopes: Envelope[] = [];
+  for (const element of migre.envelopes) {
+    const enveloppe = analyserEnveloppe(element);
+    if (!enveloppe) return { ok: false, reason: "invalidData" };
+    envelopes.push(enveloppe);
+  }
+
+  // L'unicité des identifiants porte sur le document entier : aucune entité ne peut
+  // partager le sien avec une autre, quel qu'en soit le type.
+  const identifiants = [...incomes, ...subscriptions, ...expenses, ...envelopes].map(
+    (e) => e.id,
+  );
   if (new Set(identifiants).size !== identifiants.length) {
+    return { ok: false, reason: "invalidData" };
+  }
+
+  // Invariant propre aux enveloppes : au plus une par couple catégorie/mois (EF-005).
+  const couples = envelopes.map((e) => `${e.month} ${e.category}`);
+  if (new Set(couples).size !== couples.length) {
     return { ok: false, reason: "invalidData" };
   }
 
   return {
     ok: true,
-    value: { version: DOCUMENT_VERSION, incomes, subscriptions, expenses },
+    value: { version: DOCUMENT_VERSION, incomes, subscriptions, expenses, envelopes },
   };
 }
 

@@ -58,21 +58,25 @@ export function IncomeList() {
                       <span className="font-semibold tabular-nums">
                         {formatCents(revenu.amountCents)}
                       </span>
+                      {/*
+                        Nom accessible porté par `aria-label` : accolé à un `sr-only`,
+                        l’espace séparateur disparaît au calcul du nom accessible.
+                      */}
                       <button
                         type="button"
                         className={buttonClassName}
+                        aria-label={`Modifier le revenu ${revenu.label}`}
                         onClick={() => setEnEdition(revenu)}
                       >
                         Modifier
-                        <span className="sr-only"> le revenu {revenu.label}</span>
                       </button>
                       <button
                         type="button"
                         className={buttonClassName}
+                        aria-label={`Supprimer le revenu ${revenu.label}`}
                         onClick={() => removeIncome(revenu.id)}
                       >
                         Supprimer
-                        <span className="sr-only"> le revenu {revenu.label}</span>
                       </button>
                     </div>
                   </div>

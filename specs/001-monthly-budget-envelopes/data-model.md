@@ -74,10 +74,14 @@ Aucune n'est persistée.
 
 ```text
 dépensé > plafond                      → overBudget
+dépensé == 0                           → unused
 dépensé × 100 >= plafond × 85          → nearingLimit
-dépensé > 0                            → onTrack
-sinon                                  → unused
+sinon                                  → onTrack
 ```
+
+Le test du dépensé nul vient **avant** celui du seuil : sans cela, un plafond nul et un dépensé nul
+satisferaient trivialement `0 >= 0` et l'enveloppe serait annoncée « proche du plafond » alors que
+rien n'a été dépensé.
 
 La comparaison du seuil se fait **par multiplication entière**, pas par division : une alerte ne doit
 pas dépendre d'un flottant (décision D2).

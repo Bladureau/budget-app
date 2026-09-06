@@ -7,6 +7,7 @@ import { BudgetRing } from "@/features/budget/components/budget-ring";
 import { DailyAllowance } from "@/features/budget/components/daily-allowance";
 import { ExpenseForm } from "@/features/budget/components/expense-form";
 import { ExpenseJournal } from "@/features/budget/components/expense-journal";
+import { EnvelopeList } from "@/features/budget/components/envelope-list";
 import { MonthSummary } from "@/features/budget/components/month-summary";
 import { IncomeList } from "@/features/budget/components/income-list";
 import { SubscriptionList } from "@/features/budget/components/subscription-list";
@@ -45,6 +46,7 @@ export function BudgetView() {
             <DailyAllowance />
             <ExpenseForm />
             <ExpenseJournal />
+            <EnvelopeList />
 
             <details className="rounded-lg border border-[var(--border)] p-4">
               <summary className="cursor-pointer font-medium">

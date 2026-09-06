@@ -33,10 +33,11 @@ function documentAvec(disponibleCents: number, expenses: Expense[]): BudgetDocum
     date: "2026-03-01",
   };
   return {
-    version: 2,
+    version: 3,
     incomes: disponibleCents > 0 ? [revenu] : [],
     subscriptions: [],
     expenses,
+    envelopes: [],
   };
 }
 

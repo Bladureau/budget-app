@@ -35,14 +35,20 @@ copyEnvelopesToMonth(envelopes: readonly Envelope[], from: MonthKey, to: MonthKe
 
 ```text
 dépensé > plafond               → overBudget
+dépensé == 0                    → unused
 dépensé × 100 >= plafond × 85   → nearingLimit
-dépensé > 0                     → onTrack
-sinon                           → unused
+sinon                           → onTrack
 ```
 
 Évaluée **dans cet ordre**, et par **multiplication entière** plutôt que par division : une alerte ne
 doit pas dépendre d'un flottant. Un plafond nul avec une dépense tombe dans le premier cas, ce qui est
 le comportement attendu (décision D7).
+
+> **Corrigée le 2026-09-06 pendant l'implémentation.** La rédaction initiale plaçait le test du seuil
+> avant celui du dépensé nul. Un plafond nul **et** un dépensé nul satisfaisaient alors trivialement
+> la comparaison `0 >= 0` et l'enveloppe était annoncée « proche du plafond » alors que rien n'avait
+> été dépensé. Tester le dépensé nul en second corrige le cas sans rien changer aux autres : une
+> enveloppe où rien n'a été dépensé n'est jamais proche de son plafond.
 
 ### Règle d'affectation d'une dépense
 

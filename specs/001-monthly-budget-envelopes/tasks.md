@@ -44,12 +44,12 @@ Les amendements viennent en premier. Tant qu'ils ne sont pas faits, la spécific
 comportement que le code ne produira pas, et quiconque l'ouvre pendant l'implémentation y lit une
 exigence violée sans savoir s'il s'agit d'un défaut ou d'une décision.
 
-- [ ] T001 Confirmer que `npm run test` passe sur la base existante (250 tests) avant toute modification, afin de pouvoir attribuer toute régression ultérieure
-- [ ] T002 [P] Ajouter dans `src/features/budget/messages.ts` les libellés des quatre états d'enveloppe, le message du regroupement non budgété et celui du report sans source, conformément à [contracts/interface.md](./contracts/interface.md)
-- [ ] T003 **Avant toute écriture de code** : amender EF-009 dans `specs/001-monthly-budget-envelopes/spec.md` pour placer les remboursements et montants négatifs **hors périmètre**, en indiquant que `Expense.amountCents` est strictement positif depuis la fonctionnalité 003 et qu'un remboursement relèverait d'une fonctionnalité dédiée
-- [ ] T004 **Avant toute écriture de code** : amender EF-008 dans `specs/001-monthly-budget-envelopes/spec.md` pour dire que les enveloppes ne mesurent que des dépenses, le modèle ne comportant ni virement ni écriture de revenu — ou retirer l'exigence, devenue sans objet
-- [ ] T005 [P] Corriger l'hypothèse des catégories dans `specs/001-monthly-budget-envelopes/spec.md` : elles sont du texte libre et facultatif, non une liste gérée ; le cas limite du renommage devient le cas courant et le regroupement non budgété absorbe aussi les dépenses sans catégorie (décision D3)
-- [ ] T006 Déclarer le type `Envelope` et porter `DOCUMENT_VERSION` de 2 à 3 dans `src/features/budget/types.ts`, en ajoutant `envelopes: Envelope[]` à `BudgetDocument` et à `emptyDocument()`, ainsi que les types dérivés `EnvelopeState`, `EnvelopeStatus`, `UnbudgetedGroup` et `MonthlyEnvelopes` de [data-model.md](./data-model.md)
+- [X] T001 Confirmer que `npm run test` passe sur la base existante (250 tests) avant toute modification, afin de pouvoir attribuer toute régression ultérieure
+- [X] T002 [P] Ajouter dans `src/features/budget/messages.ts` les libellés des quatre états d'enveloppe, le message du regroupement non budgété et celui du report sans source, conformément à [contracts/interface.md](./contracts/interface.md)
+- [X] T003 **Avant toute écriture de code** : amender EF-009 dans `specs/001-monthly-budget-envelopes/spec.md` pour placer les remboursements et montants négatifs **hors périmètre**, en indiquant que `Expense.amountCents` est strictement positif depuis la fonctionnalité 003 et qu'un remboursement relèverait d'une fonctionnalité dédiée
+- [X] T004 **Avant toute écriture de code** : amender EF-008 dans `specs/001-monthly-budget-envelopes/spec.md` pour dire que les enveloppes ne mesurent que des dépenses, le modèle ne comportant ni virement ni écriture de revenu — ou retirer l'exigence, devenue sans objet
+- [X] T005 [P] Corriger l'hypothèse des catégories dans `specs/001-monthly-budget-envelopes/spec.md` : elles sont du texte libre et facultatif, non une liste gérée ; le cas limite du renommage devient le cas courant et le regroupement non budgété absorbe aussi les dépenses sans catégorie (décision D3)
+- [X] T006 Déclarer le type `Envelope` et porter `DOCUMENT_VERSION` de 2 à 3 dans `src/features/budget/types.ts`, en ajoutant `envelopes: Envelope[]` à `BudgetDocument` et à `emptyDocument()`, ainsi que les types dérivés `EnvelopeState`, `EnvelopeStatus`, `UnbudgetedGroup` et `MonthlyEnvelopes` de [data-model.md](./data-model.md)
 
 **Point de contrôle** : la spécification et la conception disent la même chose. `npm run build`
 échouera tant que la phase 2 n'aura pas étendu l'analyseur — c'est attendu.
@@ -64,27 +64,27 @@ exigence violée sans savoir s'il s'agit d'un défaut ou d'une décision.
 
 ### Migration et persistance
 
-- [ ] T007 [P] Écrire les tests de migration dans `src/lib/storage.test.ts` : un document v2 comportant des dépenses migre en v3 **sans en perdre une seule** ; `envelopes` initialisée à `[]` ; un document v1 traverse les deux migrations jusqu'en v3 sans perte ; un document v4 part en quarantaine
-- [ ] T008 [P] Écrire les tests de l'analyseur d'enveloppe dans `src/lib/storage.test.ts` : plafond négatif refusé ; **plafond nul accepté** (décision D7) ; plafond non entier refusé ; catégorie vide ou trop longue refusée ; mois mal formé refusé ; **doublon du couple catégorie/mois refusé** (EF-005) ; identifiant en doublon avec une dépense refusé
-- [ ] T009 Implémenter `analyserEnveloppe()` dans `src/lib/storage.ts` sur le motif des analyseurs existants, avec la règle `limitCents >= 0` — seule exception du projet à la règle du montant strictement positif, et délibérée
-- [ ] T010 Implémenter la migration 2 → 3 dans la fonction `migrer()` de `src/lib/storage.ts` : `envelopes` initialisée à `[]`, `version` portée à 3, le reste repris tel quel. Le chemin 1 → 2 → 3 doit se composer sans traitement particulier
-- [ ] T011 Étendre `parseDocument()` dans `src/lib/storage.ts` : analyse des enveloppes, unicité des identifiants sur le document entier, et **unicité du couple catégorie/mois**
+- [X] T007 [P] Écrire les tests de migration dans `src/lib/storage.test.ts` : un document v2 comportant des dépenses migre en v3 **sans en perdre une seule** ; `envelopes` initialisée à `[]` ; un document v1 traverse les deux migrations jusqu'en v3 sans perte ; un document v4 part en quarantaine
+- [X] T008 [P] Écrire les tests de l'analyseur d'enveloppe dans `src/lib/storage.test.ts` : plafond négatif refusé ; **plafond nul accepté** (décision D7) ; plafond non entier refusé ; catégorie vide ou trop longue refusée ; mois mal formé refusé ; **doublon du couple catégorie/mois refusé** (EF-005) ; identifiant en doublon avec une dépense refusé
+- [X] T009 Implémenter `analyserEnveloppe()` dans `src/lib/storage.ts` sur le motif des analyseurs existants, avec la règle `limitCents >= 0` — seule exception du projet à la règle du montant strictement positif, et délibérée
+- [X] T010 Implémenter la migration 2 → 3 dans la fonction `migrer()` de `src/lib/storage.ts` : `envelopes` initialisée à `[]`, `version` portée à 3, le reste repris tel quel. Le chemin 1 → 2 → 3 doit se composer sans traitement particulier
+- [X] T011 Étendre `parseDocument()` dans `src/lib/storage.ts` : analyse des enveloppes, unicité des identifiants sur le document entier, et **unicité du couple catégorie/mois**
 
 ### Logique de calcul
 
-- [ ] T012 [P] Écrire les tests d'état et de seuil dans `src/features/budget/envelopes.test.ts` : plafond 400,00 € avec 0 → `unused`, 200,00 € → `onTrack`, **340,00 € exactement → `nearingLimit`**, 339,99 € → `onTrack`, 400,00 € → `nearingLimit`, 400,01 € → `overBudget` ; plafond nul sans dépense → `unused`, avec dépense → `overBudget`
-- [ ] T013 [P] Écrire les tests de `consumedRatio` dans `src/features/budget/envelopes.test.ts` : plafonné à 1 en dépassement ; jamais `NaN` ni `Infinity`, plafond nul compris
-- [ ] T014 [P] Écrire les tests de `computeMonthlyEnvelopes` dans `src/features/budget/envelopes.test.ts` : dépensé exact au centime sur au moins 200 dépenses (CS-003) ; dépense d'un autre mois exclue ; enveloppe sans dépense conservée avec un dépensé nul ; `overBudgetCount` et `overBudgetTotalCents` exacts ; ventilation triée de façon déterministe à montants égaux
-- [ ] T015 [P] Écrire les tests du regroupement non budgété dans `src/features/budget/envelopes.test.ts` : une dépense **sans catégorie** et une dépense d'une **catégorie sans plafond** y figurent toutes deux ; elles sont exclues des totaux budgétés ; la ventilation distingue `null` des catégories nommées
-- [ ] T016 [P] Écrire les tests d'isolation des mois dans `src/features/budget/envelopes.test.ts` : un plafond défini pour un mois n'apparaît pas dans un autre ; modifier le plafond d'un mois ne change aucun montant des trois mois précédents (CS-007, EF-022)
-- [ ] T017 [P] Écrire les tests de report dans `src/features/budget/envelopes.test.ts` : `copyEnvelopesToMonth` duplique tous les plafonds avec de **nouveaux identifiants** ; copier depuis un mois vide renvoie une liste vide ; les copies sont indépendantes de leurs originaux
-- [ ] T018 Implémenter `src/features/budget/envelopes.ts` : `envelopesForMonth()`, `findEnvelope()`, `envelopeState()`, `consumedRatio()`, `computeMonthlyEnvelopes()` et `copyEnvelopesToMonth()` selon [contracts/calculs-enveloppes.md](./contracts/calculs-enveloppes.md). Le seuil se compare **par multiplication entière** (`dépensé × 100 >= plafond × 85`), jamais par division
-- [ ] T019 Ajouter les actions `setEnvelopeLimit`, `removeEnvelope` et `copyEnvelopesFromPreviousMonth` au réducteur de `src/features/budget/budget-provider.tsx` ; `setEnvelopeLimit` crée ou met à jour, sans jamais produire de doublon (EF-005)
+- [X] T012 [P] Écrire les tests d'état et de seuil dans `src/features/budget/envelopes.test.ts` : plafond 400,00 € avec 0 → `unused`, 200,00 € → `onTrack`, **340,00 € exactement → `nearingLimit`**, 339,99 € → `onTrack`, 400,00 € → `nearingLimit`, 400,01 € → `overBudget` ; plafond nul sans dépense → `unused`, avec dépense → `overBudget`
+- [X] T013 [P] Écrire les tests de `consumedRatio` dans `src/features/budget/envelopes.test.ts` : plafonné à 1 en dépassement ; jamais `NaN` ni `Infinity`, plafond nul compris
+- [X] T014 [P] Écrire les tests de `computeMonthlyEnvelopes` dans `src/features/budget/envelopes.test.ts` : dépensé exact au centime sur au moins 200 dépenses (CS-003) ; dépense d'un autre mois exclue ; enveloppe sans dépense conservée avec un dépensé nul ; `overBudgetCount` et `overBudgetTotalCents` exacts ; ventilation triée de façon déterministe à montants égaux
+- [X] T015 [P] Écrire les tests du regroupement non budgété dans `src/features/budget/envelopes.test.ts` : une dépense **sans catégorie** et une dépense d'une **catégorie sans plafond** y figurent toutes deux ; elles sont exclues des totaux budgétés ; la ventilation distingue `null` des catégories nommées
+- [X] T016 [P] Écrire les tests d'isolation des mois dans `src/features/budget/envelopes.test.ts` : un plafond défini pour un mois n'apparaît pas dans un autre ; modifier le plafond d'un mois ne change aucun montant des trois mois précédents (CS-007, EF-022)
+- [X] T017 [P] Écrire les tests de report dans `src/features/budget/envelopes.test.ts` : `copyEnvelopesToMonth` duplique tous les plafonds avec de **nouveaux identifiants** ; copier depuis un mois vide renvoie une liste vide ; les copies sont indépendantes de leurs originaux
+- [X] T018 Implémenter `src/features/budget/envelopes.ts` : `envelopesForMonth()`, `findEnvelope()`, `envelopeState()`, `consumedRatio()`, `computeMonthlyEnvelopes()` et `copyEnvelopesToMonth()` selon [contracts/calculs-enveloppes.md](./contracts/calculs-enveloppes.md). Le seuil se compare **par multiplication entière** (`dépensé × 100 >= plafond × 85`), jamais par division
+- [X] T019 Ajouter les actions `setEnvelopeLimit`, `removeEnvelope` et `copyEnvelopesFromPreviousMonth` au réducteur de `src/features/budget/budget-provider.tsx` ; `setEnvelopeLimit` crée ou met à jour, sans jamais produire de doublon (EF-005)
 
 ### Non-régression de la fonctionnalité 004
 
-- [ ] T020 Porter `FORMAT_VERSION` de 2 à 3 dans `src/features/budget/transfer.ts`
-- [ ] T021 Porter les témoins de `src/features/budget/transfer.test.ts` et `src/features/budget/data-transfer.test.tsx` en version 3, et vérifier que les tests d'export passent **sans autre modification**. Un échec signalerait que l'extension du document n'est plus additive : s'arrêter alors pour comprendre pourquoi, plutôt que d'adapter les tests
+- [X] T020 Porter `FORMAT_VERSION` de 2 à 3 dans `src/features/budget/transfer.ts`
+- [X] T021 Porter les témoins de `src/features/budget/transfer.test.ts` et `src/features/budget/data-transfer.test.tsx` en version 3, et vérifier que les tests d'export passent **sans autre modification**. Un échec signalerait que l'extension du document n'est plus additive : s'arrêter alors pour comprendre pourquoi, plutôt que d'adapter les tests
 
 **Point de contrôle** : `npm run test` passe, migration comprise. Toute la logique est prouvée avant
 qu'aucune interface n'existe, et les données existantes sont en sécurité.
@@ -98,11 +98,11 @@ qu'aucune interface n'existe, et les données existantes sont en sécurité.
 **Test indépendant** : définir des plafonds sur deux ou trois catégories, recharger l'application,
 vérifier qu'ils persistent et que le total prévu est leur somme.
 
-- [ ] T022 [US1] Créer `src/features/budget/components/envelope-form.tsx` : champ de catégorie, champ de plafond avec `inputMode="decimal"`, et enregistrement pour le mois consulté (EF-001)
-- [ ] T023 [US1] Implémenter dans `envelope-form.tsx` les refus d'EF-004 — plafond négatif ou non numérique — avec message textuel rattaché au champ, et **l'acceptation explicite du plafond nul** en indiquant ce qu'il signifie
-- [ ] T024 [US1] Implémenter dans `envelope-form.tsx` la réinitialisation après validation, pour que définir cinq plafonds tienne en moins de deux minutes (CS-001)
-- [ ] T025 [US1] Créer `src/features/budget/components/envelope-list.tsx` : liste des enveloppes du mois avec plafond, modification et suppression (EF-002), la suppression indiquant que les dépenses concernées basculeront en non budgété
-- [ ] T026 [US1] Câbler `<EnvelopeList />` après le journal des dépenses dans `src/features/budget/components/budget-view.tsx`, conformément à l'emplacement fixé par [contracts/interface.md](./contracts/interface.md)
+- [X] T022 [US1] Créer `src/features/budget/components/envelope-form.tsx` : champ de catégorie, champ de plafond avec `inputMode="decimal"`, et enregistrement pour le mois consulté (EF-001)
+- [X] T023 [US1] Implémenter dans `envelope-form.tsx` les refus d'EF-004 — plafond négatif ou non numérique — avec message textuel rattaché au champ, et **l'acceptation explicite du plafond nul** en indiquant ce qu'il signifie
+- [X] T024 [US1] Implémenter dans `envelope-form.tsx` la réinitialisation après validation, pour que définir cinq plafonds tienne en moins de deux minutes (CS-001)
+- [X] T025 [US1] Créer `src/features/budget/components/envelope-list.tsx` : liste des enveloppes du mois avec plafond, modification et suppression (EF-002), la suppression indiquant que les dépenses concernées basculeront en non budgété
+- [X] T026 [US1] Câbler `<EnvelopeList />` après le journal des dépenses dans `src/features/budget/components/budget-view.tsx`, conformément à l'emplacement fixé par [contracts/interface.md](./contracts/interface.md)
 
 **Point de contrôle** : le récit 1 fonctionne seul — l'application consigne un plan mensuel de
 dépense, ce qui a déjà une valeur autonome.
@@ -117,11 +117,11 @@ dépense, ce qui a déjà une valeur autonome.
 montants dépensé et restant correspondent à leur somme ; vérifier qu'une dépense datée hors du mois
 n'a aucun effet.
 
-- [ ] T027 [US2] Afficher dans `src/features/budget/components/envelope-list.tsx` le plafond, le montant dépensé et le montant restant de chaque enveloppe (EF-011)
-- [ ] T028 [US2] Ajouter à `envelope-list.tsx` une barre de progression **décorative** (`aria-hidden`), plafonnée au tour complet et sans animation sous `prefers-reduced-motion`
-- [ ] T029 [US2] Créer `src/features/budget/components/envelope-summary.tsx` : total prévu, total dépensé au titre des enveloppes, total restant (EF-013), placé **en tête de section** pour être lisible sans défilement (CS-002)
-- [ ] T030 [US2] Implémenter le regroupement « Non budgété » dans `envelope-summary.tsx` : total et ventilation, en indiquant qu'il couvre les catégories non plafonnées **et** les dépenses sans catégorie (EF-012, décision D3)
-- [ ] T031 [US2] Câbler `<EnvelopeSummary />` en tête de la section des enveloppes dans `src/features/budget/components/envelope-list.tsx`
+- [X] T027 [US2] Afficher dans `src/features/budget/components/envelope-list.tsx` le plafond, le montant dépensé et le montant restant de chaque enveloppe (EF-011)
+- [X] T028 [US2] Ajouter à `envelope-list.tsx` une barre de progression **décorative** (`aria-hidden`), plafonnée au tour complet et sans animation sous `prefers-reduced-motion`
+- [X] T029 [US2] Créer `src/features/budget/components/envelope-summary.tsx` : total prévu, total dépensé au titre des enveloppes, total restant (EF-013), placé **en tête de section** pour être lisible sans défilement (CS-002)
+- [X] T030 [US2] Implémenter le regroupement « Non budgété » dans `envelope-summary.tsx` : total et ventilation, en indiquant qu'il couvre les catégories non plafonnées **et** les dépenses sans catégorie (EF-012, décision D3)
+- [X] T031 [US2] Câbler `<EnvelopeSummary />` en tête de la section des enveloppes dans `src/features/budget/components/envelope-list.tsx`
 
 **Point de contrôle** : les récits 1 et 2 forment un budget par enveloppes utilisable.
 
@@ -134,10 +134,10 @@ n'a aucun effet.
 **Test indépendant** : ajouter des dépenses qui font franchir le seuil d'alerte puis le plafond, et
 vérifier que l'état change à chaque franchissement, signalé par du texte autant que visuellement.
 
-- [ ] T032 [US3] Afficher dans `src/features/budget/components/envelope-list.tsx` les quatre états d'EF-014 avec leur **libellé textuel** (EF-017), de sorte que retirer la couleur ne fasse perdre aucune information (CS-006)
-- [ ] T033 [US3] Implémenter dans `envelope-list.tsx` la présentation du dépassement d'EF-016 : montant du dépassement affiché, jamais un reste négatif brut
-- [ ] T034 [US3] Afficher dans `src/features/budget/components/envelope-summary.tsx` le nombre d'enveloppes en dépassement **et** le montant total du dépassement (EF-018)
-- [ ] T035 [US3] Vérifier dans `envelope-list.tsx` que l'état « proche du plafond » apparaît bien au seuil exact de 85 % et pas avant, en cohérence avec `envelopeState()`
+- [X] T032 [US3] Afficher dans `src/features/budget/components/envelope-list.tsx` les quatre états d'EF-014 avec leur **libellé textuel** (EF-017), de sorte que retirer la couleur ne fasse perdre aucune information (CS-006)
+- [X] T033 [US3] Implémenter dans `envelope-list.tsx` la présentation du dépassement d'EF-016 : montant du dépassement affiché, jamais un reste négatif brut
+- [X] T034 [US3] Afficher dans `src/features/budget/components/envelope-summary.tsx` le nombre d'enveloppes en dépassement **et** le montant total du dépassement (EF-018)
+- [X] T035 [US3] Vérifier dans `envelope-list.tsx` que l'état « proche du plafond » apparaît bien au seuil exact de 85 % et pas avant, en cohérence avec `envelopeState()`
 
 **Point de contrôle** : les trois premiers récits fonctionnent ; l'alerte est la partie qui change le
 comportement.
@@ -151,9 +151,9 @@ comportement.
 **Test indépendant** : définir des plafonds sur un mois, passer au suivant, déclencher le report, et
 vérifier que les plafonds sont copiés tandis que les dépensés repartent de zéro.
 
-- [ ] T036 [US4] Ajouter l'action de report dans `src/features/budget/components/envelope-list.tsx`, appelant `copyEnvelopesFromPreviousMonth` du fournisseur (EF-020)
-- [ ] T037 [US4] Implémenter la confirmation avant remplacement dans `envelope-list.tsx` lorsque le mois cible comporte déjà des plafonds (EF-021), actionnable au clavier
-- [ ] T038 [US4] Implémenter dans `envelope-list.tsx` l'indisponibilité de l'action quand le mois précédent n'a aucun plafond, avec un message expliquant qu'il n'y a rien à copier
+- [X] T036 [US4] Ajouter l'action de report dans `src/features/budget/components/envelope-list.tsx`, appelant `copyEnvelopesFromPreviousMonth` du fournisseur (EF-020)
+- [X] T037 [US4] Implémenter la confirmation avant remplacement dans `envelope-list.tsx` lorsque le mois cible comporte déjà des plafonds (EF-021), actionnable au clavier
+- [X] T038 [US4] Implémenter dans `envelope-list.tsx` l'indisponibilité de l'action quand le mois précédent n'a aucun plafond, avec un message expliquant qu'il n'y a rien à copier
 
 **Point de contrôle** : les quatre récits fonctionnent ; la fonctionnalité est complète.
 
@@ -161,15 +161,15 @@ vérifier que les plafonds sont copiés tandis que les dépensés repartent de z
 
 ## Phase 7 : Finition et exigences transverses
 
-- [ ] T039 [P] Écrire les tests d'intégration dans `src/features/budget/envelopes.integration.test.tsx` : définir un plafond met à jour la synthèse sans rafraîchissement ; saisir une dépense met à jour l'enveloppe correspondante (EF-010) ; refus de saisie sans écriture ; une dépense sans catégorie apparaît en non budgété
-- [ ] T040 [P] Ajouter la ligne de la version 3 à la table des versions de `specs/004-data-export-import/contracts/fichier-export.md` et porter son en-tête et son exemple en version 3
-- [ ] T041 [P] Vérifier l'accessibilité au clavier de `src/features/budget/components/envelope-form.tsx` et `envelope-list.tsx` : ordre de tabulation cohérent, focus visible, confirmation de report actionnable au clavier
-- [ ] T042 [P] Vérifier l'adaptabilité de `src/features/budget/components/envelope-list.tsx` et `envelope-summary.tsx` : utilisables dès 360 px sans défilement horizontal, lisibles à 200 % de zoom, contraste WCAG 2.1 AA dans les thèmes de `src/app/globals.css`
-- [ ] T043 Vérifier sur l'ensemble de `src/features/budget/envelopes.ts` et des composants ajoutés qu'aucun montant n'est formaté hors de `formatCents()` et qu'aucune division n'est introduite hors du taux de consommation
-- [ ] T044 Mettre à jour `README.md` : enveloppes budgétaires par catégorie, alerte au seuil de 85 %, regroupement non budgété, report des plafonds ; ajouter `envelopes.ts` à l'arborescence et mentionner le passage du document en version 3
-- [ ] T045 Relire les fichiers ajoutés dans `src/` : commentaires en français, suppression de tout code mort, commenté ou en attente
-- [ ] T046 Exécuter les douze scénarios manuels de `specs/001-monthly-budget-envelopes/quickstart.md` et consigner le résultat, en particulier le scénario 1 qui vérifie qu'aucune donnée existante n'a été perdue à la migration
-- [ ] T047 Passer les barrières de clôture : `npm run build`, `npm run lint` et `npm run test` sans aucune erreur ni règle neutralisée
+- [X] T039 [P] Écrire les tests d'intégration dans `src/features/budget/envelopes.integration.test.tsx` : définir un plafond met à jour la synthèse sans rafraîchissement ; saisir une dépense met à jour l'enveloppe correspondante (EF-010) ; refus de saisie sans écriture ; une dépense sans catégorie apparaît en non budgété
+- [X] T040 [P] Ajouter la ligne de la version 3 à la table des versions de `specs/004-data-export-import/contracts/fichier-export.md` et porter son en-tête et son exemple en version 3
+- [X] T041 [P] Vérifier l'accessibilité au clavier de `src/features/budget/components/envelope-form.tsx` et `envelope-list.tsx` : ordre de tabulation cohérent, focus visible, confirmation de report actionnable au clavier
+- [X] T042 [P] Vérifier l'adaptabilité de `src/features/budget/components/envelope-list.tsx` et `envelope-summary.tsx` : utilisables dès 360 px sans défilement horizontal, lisibles à 200 % de zoom, contraste WCAG 2.1 AA dans les thèmes de `src/app/globals.css`
+- [X] T043 Vérifier sur l'ensemble de `src/features/budget/envelopes.ts` et des composants ajoutés qu'aucun montant n'est formaté hors de `formatCents()` et qu'aucune division n'est introduite hors du taux de consommation
+- [X] T044 Mettre à jour `README.md` : enveloppes budgétaires par catégorie, alerte au seuil de 85 %, regroupement non budgété, report des plafonds ; ajouter `envelopes.ts` à l'arborescence et mentionner le passage du document en version 3
+- [X] T045 Relire les fichiers ajoutés dans `src/` : commentaires en français, suppression de tout code mort, commenté ou en attente
+- [X] T046 Exécuter les douze scénarios manuels de `specs/001-monthly-budget-envelopes/quickstart.md` et consigner le résultat, en particulier le scénario 1 qui vérifie qu'aucune donnée existante n'a été perdue à la migration
+- [X] T047 Passer les barrières de clôture : `npm run build`, `npm run lint` et `npm run test` sans aucune erreur ni règle neutralisée
 
 ---
 
