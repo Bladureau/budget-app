@@ -13,7 +13,8 @@
 
 ## Complétude des exigences
 
-- [ ] **Aucune question ouverte ne subsiste** — trois questions restent en attente de décision (Q1, Q2, Q3)
+- [X] **Aucune question ouverte ne subsiste** — Q1, Q2 et Q3 ont été tranchées le 2026-09-07 et
+      consignées dans [research.md](../research.md)
 - [X] Les exigences sont testables et non ambiguës
 - [X] Les critères de succès sont mesurables
 - [X] Les critères de succès sont indépendants de toute technologie
@@ -40,7 +41,18 @@
 
 ## Notes
 
-Trois questions bloquent le passage à `/speckit-plan`, et une seule est réellement structurante :
+> **Résolues le 2026-09-07.** Les trois questions ci-dessous ne bloquent plus : elles ont été posées
+> à l'utilisateur avant la planification et leurs réponses figurent dans
+> [research.md](../research.md). Q1 a été tranchée en faveur du **local-first complet**, ce qui rend
+> **inutile tout amendement constitutionnel** — l'issue que cette liste espérait. Q2 retient le
+> **verrou optimiste par révision**, Q3 le **jeton d'appareil doublé d'une isolation réseau**.
+>
+> Une quatrième question, non anticipée ici, a été posée au passage : le support de stockage. Le
+> choix du **fichier JSON atomique** évite d'ajouter une dépendance à la pile approuvée, ce qui
+> aurait constitué un second amendement.
+
+Énoncé initial, conservé pour mémoire — trois questions bloquaient le passage à `/speckit-plan`, et
+une seule était réellement structurante :
 
 1. **Q1 — capacité hors connexion.** C'est la question critique. Le principe I impose que
    l'application reste utilisable sans réseau. Une bascule naïve vers un stockage distant
