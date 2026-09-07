@@ -143,7 +143,14 @@ Deux règles structurantes :
   fonctionnalité implémentée ici
 - `specs/004-data-export-import/` — spécification, plan et contrats de la sauvegarde
 - `specs/003-daily-allowance-dashboard/` — spécification, plan et contrats du tableau de bord
-- `specs/001` — fonctionnalité spécifiée, non encore développée
+- `specs/001-monthly-budget-envelopes/` — spécification, plan et contrats des enveloppes
 
 La documentation, les spécifications, les plans et les commentaires de code sont rédigés en
 français ; les identifiants de code restent en anglais.
+
+## Licence
+
+MIT — voir [LICENSE](LICENSE).
+
+Le texte de la licence reste en anglais : c'est sa rédaction canonique, celle qui fait foi. Le
+traduire l'affaiblirait juridiquement sans rien apporter.
