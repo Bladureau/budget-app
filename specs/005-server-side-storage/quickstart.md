@@ -76,6 +76,17 @@ npm run lint      # aucune erreur
 npm test          # tests du principe III
 ```
 
+**Référence de non-régression (T003)** — relevée le 2026-09-07, avant toute modification de la
+fonctionnalité 005 :
+
+| Mesure | Valeur de départ |
+| --- | --- |
+| Fichiers de test | **13**, tous au vert |
+| Tests | **343**, tous au vert |
+
+CS-004 exige qu'aucun comportement existant ne régresse : à la fin de la fonctionnalité, ces 343
+tests doivent toujours passer, et le total ne peut qu'augmenter.
+
 ---
 
 ## 4. Scénarios de validation

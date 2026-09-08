@@ -2,6 +2,8 @@
 
 import { useBudget } from "@/features/budget/budget-provider";
 import { StorageNotice } from "@/features/budget/components/storage-notice";
+import { SyncStatus } from "@/features/budget/components/sync-status";
+import { ConflictDialog } from "@/features/budget/components/conflict-dialog";
 import { MonthNavigator } from "@/features/budget/components/month-navigator";
 import { BudgetRing } from "@/features/budget/components/budget-ring";
 import { DailyAllowance } from "@/features/budget/components/daily-allowance";
@@ -15,6 +17,42 @@ import { ChargeBreakdown } from "@/features/budget/components/charge-breakdown";
 import { UpcomingDues } from "@/features/budget/components/upcoming-dues";
 import { ForecastView } from "@/features/budget/components/forecast-view";
 import { DataTransfer } from "@/features/budget/components/data-transfer";
+
+/**
+ * Premier lancement : le stockage central est vide.
+ *
+ * **Ce n'est pas une erreur, c'est un budget neuf.** La distinction compte : l'application
+ * répond `200` avec la révision 0, pas un échec, et l'utilisateur doit être invité à
+ * commencer plutôt qu'averti d'un problème inexistant.
+ *
+ * N'apparaît que lorsque la synchronisation a réellement abouti : hors connexion, on ignore
+ * si le budget est vide ou seulement injoignable, et l'affirmer serait faux.
+ */
+function PremierLancement() {
+  const { document, syncState, pendingChanges } = useBudget();
+
+  const vide =
+    document.incomes.length === 0 &&
+    document.subscriptions.length === 0 &&
+    document.expenses.length === 0 &&
+    document.envelopes.length === 0;
+
+  if (!vide || syncState !== "idle" || pendingChanges) return null;
+
+  return (
+    <section
+      aria-label="Bienvenue"
+      className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm"
+    >
+      <p className="font-semibold">Votre budget est vide.</p>
+      <p className="mt-1 text-[var(--muted)]">
+        Saisissez une première dépense ci-dessous, ou restaurez une sauvegarde depuis la
+        section « Vos données » en bas de page. Ce que vous enregistrerez ici se retrouvera
+        sur vos autres appareils.
+      </p>
+    </section>
+  );
+}
 
 /**
  * Vue complète.
@@ -32,16 +70,21 @@ export function BudgetView() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Budget</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Vos données restent sur cet appareil.
+            {/* « restent sur cet appareil » cesserait d'être vrai avec le stockage
+                central : la phrase dit désormais ce qui se passe réellement. */}
+            Vos données restent chez vous, synchronisées entre vos appareils.
           </p>
         </div>
         {ready ? <MonthNavigator /> : null}
       </header>
 
       <div className="space-y-8">
+        <SyncStatus />
+        <ConflictDialog />
         <StorageNotice />
         {ready ? (
           <>
+            <PremierLancement />
             <BudgetRing />
             <DailyAllowance />
             <ExpenseForm />

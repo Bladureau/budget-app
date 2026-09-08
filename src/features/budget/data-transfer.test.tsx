@@ -336,3 +336,183 @@ describe("Section « Vos données » — refus (récit 4, CS-005, CS-007)", () =
     expect(messages.size).toBe(3);
   });
 });
+
+// --- Récit 2 de la fonctionnalité 005 : reprise vers le stockage central ------------------
+
+/**
+ * Serveur simulé minimal : il ne sert qu'à observer ce que l'import y dépose.
+ *
+ * Ces tests portent la garantie de CS-002 — « sans perte d'un seul centime » — sur le chemin
+ * qui compte réellement : celui qu'empruntera l'utilisateur pour transférer son budget
+ * existant du navigateur vers le serveur.
+ */
+describe("Section « Vos données » — reprise vers le stockage central (récit 2 de la 005)", () => {
+  let serveur: { revision: number; document: BudgetDocument | null; puts: number };
+
+  beforeEach(() => {
+    serveur = { revision: 0, document: null, puts: 0 };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, options?: RequestInit) => {
+        const corpsJson = (statut: number, corps: unknown) =>
+          new Response(JSON.stringify(corps), {
+            status: statut,
+            headers: { "Content-Type": "application/json" },
+          });
+
+        if (!options || options.method === undefined || options.method === "GET") {
+          return corpsJson(200, {
+            revision: serveur.revision,
+            updatedAt: null,
+            document: serveur.document ?? {
+              version: 3,
+              incomes: [],
+              subscriptions: [],
+              expenses: [],
+              envelopes: [],
+            },
+          });
+        }
+
+        serveur.puts += 1;
+        const recu = JSON.parse(String(options.body)) as {
+          baseRevision: number;
+          document: BudgetDocument;
+        };
+        if (recu.baseRevision !== serveur.revision) {
+          return corpsJson(409, {
+            error: "revisionMismatch",
+            revision: serveur.revision,
+            updatedAt: null,
+            document: serveur.document,
+          });
+        }
+        serveur.revision += 1;
+        serveur.document = recu.document;
+        return corpsJson(200, { revision: serveur.revision, updatedAt: new Date().toISOString() });
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function importerEtConfirmer(utilisateur: ReturnType<typeof userEvent.setup>) {
+    await utilisateur.upload(
+      sectionDonnees().getByLabelText("Restaurer une sauvegarde"),
+      fichierNomme(fichierExport()),
+    );
+    await screen.findByText("Contenu de la sauvegarde");
+    await utilisateur.click(screen.getByRole("checkbox"));
+    await utilisateur.click(screen.getByRole("button", { name: "Restaurer cette sauvegarde" }));
+  }
+
+  it("un import confirmé atteint le stockage central (EF-014, EF-015)", async () => {
+    const utilisateur = userEvent.setup();
+    await monterVue();
+    await importerEtConfirmer(utilisateur);
+    await screen.findByText("Sauvegarde restaurée");
+
+    // L'import n'a pas de code de synchronisation propre : il emprunte le chemin de
+    // mutation ordinaire, et c'est ce qui le fait arriver ici.
+    await waitFor(() => expect(serveur.document).not.toBeNull());
+    expect(serveur.document).toEqual(documentImporte);
+  });
+
+  it("préserve le compte de chaque collection et la somme des montants (CS-002)", async () => {
+    const utilisateur = userEvent.setup();
+    await monterVue();
+    await importerEtConfirmer(utilisateur);
+    await waitFor(() => expect(serveur.document).not.toBeNull());
+
+    const distant = serveur.document as BudgetDocument;
+
+    expect(distant.incomes).toHaveLength(documentImporte.incomes.length);
+    expect(distant.subscriptions).toHaveLength(documentImporte.subscriptions.length);
+    expect(distant.expenses).toHaveLength(documentImporte.expenses.length);
+    expect(distant.envelopes).toHaveLength(documentImporte.envelopes.length);
+
+    const sommeLocale =
+      documentImporte.incomes.reduce((t, r) => t + r.amountCents, 0) +
+      documentImporte.subscriptions.reduce((t, a) => t + a.amounts[0].amountCents, 0);
+    const sommeDistante =
+      distant.incomes.reduce((t, r) => t + r.amountCents, 0) +
+      distant.subscriptions.reduce((t, a) => t + a.amounts[0].amountCents, 0);
+
+    expect(sommeDistante).toBe(sommeLocale);
+    expect(sommeDistante).toBe(250000 + 50000 + 1399);
+  });
+
+  it("préserve l'historique de tarifs et les pauses d'un abonnement (EF-003)", async () => {
+    // Ce sont les champs dont la perte réécrirait des mois passés : ils méritent d'être
+    // vérifiés nommément plutôt que par une égalité globale.
+    const avecHistorique: BudgetDocument = {
+      version: 3,
+      incomes: [],
+      subscriptions: [
+        {
+          id: "abo-riche",
+          label: "Assurance",
+          periodicity: "annual",
+          startDate: "2024-01-15",
+          endDate: null,
+          amounts: [
+            { amountCents: 12000, effectiveFrom: "2024-01-15" },
+            { amountCents: 13500, effectiveFrom: "2025-01-15" },
+          ],
+          pauses: [{ from: "2024-06-01", to: "2024-08-31" }],
+        },
+      ],
+      expenses: [],
+      envelopes: [],
+    };
+
+    const utilisateur = userEvent.setup();
+    await monterVue();
+    await utilisateur.upload(
+      sectionDonnees().getByLabelText("Restaurer une sauvegarde"),
+      fichierNomme(fichierExport(avecHistorique)),
+    );
+    await screen.findByText("Contenu de la sauvegarde");
+    await utilisateur.click(screen.getByRole("checkbox"));
+    await utilisateur.click(screen.getByRole("button", { name: "Restaurer cette sauvegarde" }));
+
+    await waitFor(() => expect(serveur.document).not.toBeNull());
+
+    const abonnement = (serveur.document as BudgetDocument).subscriptions[0];
+    expect(abonnement.amounts).toEqual([
+      { amountCents: 12000, effectiveFrom: "2024-01-15" },
+      { amountCents: 13500, effectiveFrom: "2025-01-15" },
+    ]);
+    expect(abonnement.pauses).toEqual([{ from: "2024-06-01", to: "2024-08-31" }]);
+  });
+
+  it("l'export reflète le contenu central adopté, pas un état local périmé (EF-013)", async () => {
+    // Le serveur détient un budget que ce navigateur n'a jamais vu.
+    serveur.revision = 4;
+    serveur.document = documentImporte;
+    localStorage.clear();
+
+    await monterVue();
+
+    // Après adoption, la copie de travail locale — celle que l'export sérialise — est
+    // devenue celle du serveur.
+    await waitFor(() => {
+      expect(documentStocke()).toEqual(documentImporte);
+    });
+  });
+
+  it("le retour arrière atteint lui aussi le stockage central", async () => {
+    const utilisateur = userEvent.setup();
+    await monterVue();
+    await importerEtConfirmer(utilisateur);
+    await screen.findByText("Sauvegarde restaurée");
+    await waitFor(() => expect(serveur.document).toEqual(documentImporte));
+
+    await utilisateur.click(screen.getByRole("button", { name: "Annuler cet import" }));
+
+    await waitFor(() => expect(serveur.document).toEqual(documentInitial));
+  });
+});

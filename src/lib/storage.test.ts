@@ -3,6 +3,7 @@ import {
   CORRUPTED_KEY_PREFIX,
   STORAGE_KEY,
   loadDocument,
+  newId,
   parseDocument,
   saveDocument,
 } from "@/lib/storage";
@@ -741,5 +742,44 @@ describe("Analyseur d'enveloppe", () => {
     expect(
       parseDocument({ version: 3, incomes: [], subscriptions: [], expenses: [] }).ok,
     ).toBe(false);
+  });
+});
+
+// --- Identifiants hors contexte sécurisé (fonctionnalité 005) ---------------------------
+
+describe("newId hors contexte sécurisé", () => {
+  const UUID_V4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  it("produit un UUID v4 quand crypto.randomUUID est disponible", () => {
+    expect(newId()).toMatch(UUID_V4);
+  });
+
+  it("produit encore un UUID v4 quand crypto.randomUUID est absent", () => {
+    // C'est exactement la situation d'un téléphone ouvrant http://10.0.0.4:3000 : hors
+    // contexte sécurisé, `randomUUID` n'existe pas. Sans repli, la première saisie
+    // échouerait — et c'est précisément l'usage que la fonctionnalité 005 rend courant.
+    const original = crypto.randomUUID;
+    // @ts-expect-error — on simule un contexte non sécurisé, où la méthode est absente.
+    delete crypto.randomUUID;
+
+    try {
+      expect(newId()).toMatch(UUID_V4);
+    } finally {
+      crypto.randomUUID = original;
+    }
+  });
+
+  it("ne produit pas deux fois le même identifiant sans randomUUID", () => {
+    const original = crypto.randomUUID;
+    // @ts-expect-error — voir ci-dessus.
+    delete crypto.randomUUID;
+
+    try {
+      const identifiants = new Set(Array.from({ length: 500 }, () => newId()));
+      expect(identifiants.size).toBe(500);
+    } finally {
+      crypto.randomUUID = original;
+    }
   });
 });

@@ -25,6 +25,13 @@ Lit l'état central. N'écrit jamais, pas même pour créer le fichier.
 | **200** | `{ revision: 0, updatedAt: null, document: <document vide> }` | **Aucun fichier central.** Budget neuf, pas une erreur (cas limite de la spécification). |
 | **401** | `{ "error": "unauthorized" }` | Cookie absent, invalide, ou `BUDGET_ACCESS_TOKEN` non configuré. |
 | **500** | `{ "error": "storageUnreadable" }` | Contenu central illisible : mis en quarantaine, **jamais écrasé** (D9). |
+| **500** | `{ "error": "storageFutureVersion" }` | Fichier écrit par une version plus récente : **laissé strictement en place**, pas même déplacé (EF-016). |
+
+> **Ajouté à l'implémentation.** Ce contrat ne prévoyait d'abord qu'un `storageUnreadable`
+> couvrant les deux cas. Les distinguer s'est imposé en écrivant le magasin : ils appellent des
+> gestes opposés de la part de l'utilisateur — « ton contenu a été mis de côté » contre « ce
+> serveur détient des données plus récentes que ton application ». Les confondre lui aurait caché
+> lequel s'applique.
 
 Un fichier absent renvoie donc **200 avec la révision 0**, et non 404 : l'absence de budget est un
 état normal du système, pas l'absence d'une ressource. C'est ce qui permet au premier appareil
