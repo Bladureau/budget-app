@@ -112,6 +112,30 @@ une erreur de configuration rend l'application inutilisable, jamais publique.
 Il n'y a ni compte, ni profil, ni mot de passe utilisateur. Le jeton autorise un appareil ; il
 n'identifie personne.
 
+## Héberger sur un NAS ou un petit serveur
+
+```bash
+npm run build && npm start
+```
+
+À vérifier avant de vous en remettre à l'installation :
+
+| Point | Pourquoi |
+| --- | --- |
+| **Une seule instance** | Le verrou qui sérialise les écritures est en mémoire. Un conteneur, pas deux, pas de réplication. |
+| **`BUDGET_DATA_DIR` sur un disque local** | Pas sur un partage SMB/NFS monté : l'écriture atomique repose sur un `rename` dans le même système de fichiers, et un partage réseau n'en garantit ni l'atomicité ni la durabilité. |
+| **Node 20 ou plus** | Exigé par Next.js 16. |
+| **Le jeton en variable d'environnement** | Jamais dans une image ni dans un `docker-compose.yml` versionné. |
+| **`data/budget.json` dans les sauvegardes** | Et gardez l'export manuel : lui seul reste lisible si la machine disparaît. |
+| **Aucune redirection de port** | Un VPN personnel (Tailscale, WireGuard) plutôt qu'une ouverture sur Internet. |
+
+Le cookie d'accès est marqué `Secure` **uniquement si la requête a réellement été servie en
+HTTPS**, ce que l'application déduit de l'en-tête `x-forwarded-proto`. C'est délibéré : un
+navigateur refuse un cookie `Secure` reçu en HTTP, et l'y forcer rendrait toute autorisation
+impossible sur une installation en HTTP simple. Vous n'avez donc rien à régler dans les deux cas —
+mais si vous pouvez servir en HTTPS (`tailscale serve` le fait avec un vrai certificat), faites-le :
+le cookie sera protégé sans que vous ayez à y penser.
+
 ## Où sont mes données ?
 
 À deux endroits, et la distinction compte.

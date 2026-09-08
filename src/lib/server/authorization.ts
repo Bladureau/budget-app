@@ -11,7 +11,7 @@
  */
 
 import { timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 export const ACCESS_COOKIE_NAME = "budget_access";
 
@@ -79,6 +79,42 @@ export async function isAuthorized(): Promise<boolean> {
     return matchesToken(cookieStore.get(ACCESS_COOKIE_NAME)?.value);
   } catch {
     // Hors contexte de requête, ou magasin de cookies indisponible : on refuse.
+    return false;
+  }
+}
+
+/**
+ * Vrai si la requête courante a réellement été servie en HTTPS.
+ *
+ * Sert à décider l'attribut `Secure` du cookie d'accès, et **rien d'autre**.
+ *
+ * Pourquoi ne pas se fonder sur `NODE_ENV` : un navigateur refuse purement et simplement un
+ * cookie `Secure` reçu en HTTP. Un serveur auto-hébergé lancé en production sur
+ * `http://nas.local:3000` ne pourrait donc jamais autoriser un appareil — la page
+ * redirigerait comme si tout allait bien, et l'application resterait non autorisée sans dire
+ * pourquoi. Le protocole réellement servi est la seule information qui réponde à la question.
+ *
+ * `x-forwarded-proto` est posé par tout terminateur TLS placé devant l'application —
+ * `tailscale serve`, nginx, Traefik, le proxy inverse d'un NAS. Son absence signifie que
+ * l'application est jointe directement, et `next start` ne sert pas de TLS lui-même : c'est
+ * donc du HTTP.
+ *
+ * **Cet en-tête est falsifiable** par un client qui n'est pas derrière un tel proxy. La
+ * conséquence en est bénigne ici : le forcer à `https` rend le cookie inutilisable pour
+ * l'appareil qui a menti — une nuisance qu'on ne s'inflige qu'à soi-même — et le forcer à
+ * `http` n'expose le cookie que sur un réseau déjà privé, derrière un VPN. Aucune des deux ne
+ * donne accès au budget, que seul le jeton ouvre.
+ */
+export async function requestIsSecure(): Promise<boolean> {
+  try {
+    const enTetes = await headers();
+    const protocole = enTetes.get("x-forwarded-proto");
+    if (protocole === null) return false;
+
+    // Une chaîne de proxys concatène les valeurs ; la première est celle vue du client.
+    return protocole.split(",")[0].trim().toLowerCase() === "https";
+  } catch {
+    // Hors contexte de requête : le choix prudent est celui qui reste utilisable.
     return false;
   }
 }

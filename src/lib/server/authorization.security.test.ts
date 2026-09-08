@@ -17,7 +17,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const cookieStore = { get: vi.fn() };
-vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
+const headerStore = { get: vi.fn((): string | null => null) };
+vi.mock("next/headers", () => ({
+  cookies: async () => cookieStore,
+  headers: async () => headerStore,
+}));
 
 import { GET, PUT } from "@/app/api/budget/route";
 import { MIN_TOKEN_LENGTH } from "@/lib/server/authorization";

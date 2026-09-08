@@ -50,12 +50,31 @@ Opération effectuée **une fois par appareil**.
 | Valeur | Le jeton | Comparé à chaque requête. |
 | `httpOnly` | `true` | Inaccessible au JavaScript de la page : le secret n'est jamais exposé au navigateur sous forme lisible (EF-022). |
 | `sameSite` | `strict` | Aucune requête déclenchée par un autre site ne l'emporte. |
-| `secure` | `true` en HTTPS | Sur un déploiement HTTP en réseau privé, `false` — sinon le cookie ne serait jamais posé et l'application serait inutilisable. |
+| `secure` | Selon le protocole **réellement servi** | `true` derrière un terminateur TLS, `false` en HTTP simple — sinon le cookie ne serait jamais posé et l'application serait inutilisable. |
 | `path` | `/` | — |
 | `maxAge` | 1 an | Autoriser une fois, pas à chaque ouverture. |
 
 `cookies()` est **asynchrone** dans la version installée : `const cookieStore = await cookies()`
 (R3 de [research.md](../research.md)).
+
+### Comment `secure` est décidé
+
+Par l'en-tête `x-forwarded-proto`, posé par tout terminateur TLS placé devant l'application —
+`tailscale serve`, nginx, Traefik, le proxy inverse d'un NAS. Son absence signifie HTTP, `next
+start` ne servant pas de TLS lui-même.
+
+> **Corrigé après un premier déploiement.** La première version adossait `secure` à
+> `NODE_ENV === "production"`. C'était faux, et d'une façon particulièrement désagréable : un
+> navigateur **refuse purement et simplement** un cookie `Secure` reçu en HTTP. Un serveur
+> auto-hébergé lancé en production sur `http://nas.local:3000` ne pouvait donc jamais autoriser
+> un appareil — la page redirigeait comme si tout allait bien, et l'application restait non
+> autorisée sans jamais dire pourquoi. `NODE_ENV` décrit le mode de construction, pas le
+> protocole ; seul ce dernier répond à la question posée.
+
+L'en-tête est falsifiable par un client qui n'est pas derrière un tel proxy. La conséquence en est
+bénigne : le forcer à `https` rend le cookie inutilisable pour l'appareil qui a menti — une nuisance
+qu'on ne s'inflige qu'à soi-même — et le forcer à `http` n'expose le cookie que sur un réseau déjà
+privé. Aucune des deux ne donne accès au budget, que seul le jeton ouvre.
 
 ### Réponses de `/authorize`
 

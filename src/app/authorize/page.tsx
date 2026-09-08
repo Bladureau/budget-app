@@ -20,6 +20,7 @@ import {
   ACCESS_COOKIE_NAME,
   configuredToken,
   matchesToken,
+  requestIsSecure,
 } from "@/lib/server/authorization";
 
 /** Un an : autoriser une fois, pas à chaque ouverture. */
@@ -45,9 +46,10 @@ async function autoriser(formData: FormData): Promise<void> {
     value: jeton,
     httpOnly: true,
     sameSite: "strict",
-    // En HTTP sur réseau privé, `secure` empêcherait le cookie d'être posé et rendrait
-    // l'application inutilisable. Il est donc adossé au protocole réellement servi.
-    secure: process.env.NODE_ENV === "production" && process.env.BUDGET_INSECURE_COOKIE !== "1",
+    // Adossé au protocole **réellement servi**, et non à `NODE_ENV` : un navigateur refuse un
+    // cookie `Secure` reçu en HTTP, si bien qu'un serveur auto-hébergé en HTTP simple ne
+    // pourrait jamais autoriser un appareil. Voir `requestIsSecure`.
+    secure: await requestIsSecure(),
     path: "/",
     maxAge: COOKIE_MAX_AGE,
   });
