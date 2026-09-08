@@ -155,6 +155,24 @@ export function emptyDocument(): BudgetDocument {
 
 // --- Entités dérivées (jamais persistées) --------------------------------------------
 
+/**
+ * État de la synchronisation avec le stockage central (fonctionnalité 005).
+ *
+ * Entièrement dérivé, jamais persisté — à l'image des totaux du budget. Voir
+ * specs/005-server-side-storage/data-model.md (§3).
+ *
+ * `offline` et `pending` se cumulent en pratique : hors connexion avec des saisies en
+ * attente est le cas nominal du récit 3.
+ */
+export type SyncState =
+  | "idle"
+  | "syncing"
+  | "offline"
+  | "pending"
+  | "conflict"
+  | "failed"
+  | "unauthorized";
+
 export type BudgetStatus = "surplus" | "balanced" | "deficit";
 
 /** Les quatre états de l'anneau du reste mensuel (EF-011). */

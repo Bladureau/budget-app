@@ -129,3 +129,44 @@ export const LIMIT_ERROR_MESSAGES: Readonly<Record<LimitError, string>> = {
   negative: "Le plafond ne peut pas être négatif. Zéro est accepté.",
   tooLarge: "Le plafond est trop élevé.",
 };
+
+// --- Synchronisation avec le stockage central (fonctionnalité 005) ---------------------
+
+import type { SyncState } from "@/features/budget/types";
+
+/**
+ * Un libellé par état de synchronisation (EF-018, principe VII).
+ *
+ * Chaque message dit **où sont les données**, pas seulement ce qui se passe : « hors
+ * connexion » n'apprend rien à qui veut savoir si sa dépense est perdue. C'est ce que
+ * demande CS-008 — comprendre en moins de cinq secondes que ce qu'on voit n'est pas
+ * synchronisé.
+ */
+export const SYNC_STATE_MESSAGES: Readonly<Record<SyncState, string>> = {
+  idle: "Synchronisé",
+  syncing: "Synchronisation en cours…",
+  offline:
+    "Hors connexion : ce budget est celui de la dernière synchronisation et peut ne pas être à jour.",
+  pending: "Modifications enregistrées sur cet appareil, pas encore synchronisées.",
+  conflict:
+    "Un autre appareil a modifié ce budget. Vos modifications sont conservées ici : choisissez laquelle garder.",
+  failed: "Échec de l’enregistrement. Vos saisies sont conservées sur cet appareil.",
+  unauthorized: "Cet appareil n’est pas autorisé à accéder au budget central.",
+};
+
+/**
+ * Cumul de `offline` et `pending`, cas nominal du récit 3. Il mérite son propre message :
+ * l'utilisateur doit apprendre d'un coup les deux choses qui l'intéressent — sa saisie est
+ * conservée, et elle n'est pas encore partie.
+ */
+export const SYNC_OFFLINE_PENDING =
+  "Hors connexion : vos saisies sont conservées sur cet appareil et rejoindront le budget central au retour du réseau.";
+
+export const SYNC_CONFLICT_KEEP_LOCAL = "Conserver mes modifications";
+export const SYNC_CONFLICT_KEEP_LOCAL_HINT =
+  "Les modifications faites sur l’autre appareil seront perdues.";
+export const SYNC_CONFLICT_TAKE_REMOTE = "Reprendre la version du serveur";
+export const SYNC_CONFLICT_TAKE_REMOTE_HINT =
+  "Les modifications faites sur cet appareil seront perdues.";
+export const SYNC_CONFLICT_EXPORT_HINT =
+  "Vous pouvez télécharger une sauvegarde avant de choisir.";

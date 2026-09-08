@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# données du stockage central (fonctionnalité 005) — budget réel de l'utilisateur
+/data/
