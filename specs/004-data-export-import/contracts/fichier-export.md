@@ -1,6 +1,6 @@
 # Contrat — Fichier d'export
 
-**Fonctionnalité** : `004-data-export-import` | **Version de format** : 1
+**Fonctionnalité** : `004-data-export-import` | **Version de format** : 2
 
 Ce document **est** la documentation du format exigée par la constitution : « un format documenté et
 portable ». Il fait partie de la livraison, au même titre que le code.
@@ -22,10 +22,10 @@ chronologiquement par ordre alphabétique dans un explorateur de fichiers.
 ```json
 {
   "application": "budget-app",
-  "formatVersion": 1,
+  "formatVersion": 3,
   "exportedAt": "2026-09-06T09:12:33.000Z",
   "data": {
-    "version": 1,
+    "version": 3,
     "incomes": [
       {
         "id": "3f2a…",
@@ -47,6 +47,23 @@ chronologiquement par ordre alphabétique dans un explorateur de fichiers.
         "amounts": [{ "amountCents": 12000, "effectiveFrom": "2026-09-10" }],
         "pauses": []
       }
+    ],
+    "expenses": [
+      {
+        "id": "c4e1…",
+        "amountCents": 1240,
+        "date": "2026-09-06",
+        "label": "Boulangerie",
+        "category": "Courses"
+      }
+    ],
+    "envelopes": [
+      {
+        "id": "9a52…",
+        "category": "Courses",
+        "month": "2026-09",
+        "limitCents": 40000
+      }
     ]
   }
 }
@@ -63,8 +80,9 @@ chronologiquement par ordre alphabétique dans un explorateur de fichiers.
 ### Contenu
 
 `data` est le document budgétaire tel que défini par
-`specs/002-income-subscriptions-budget/contracts/stockage.md`. Ce contrat ne le redécrit pas : il s'y
-réfère, pour qu'une seule définition fasse foi.
+`specs/002-income-subscriptions-budget/contracts/stockage.md`, étendu par
+`specs/003-daily-allowance-dashboard/contracts/stockage-v2.md`. Ce contrat ne le redécrit pas : il
+s'y réfère, pour qu'une seule définition fasse foi.
 
 **Lisibilité** (EF-003) : le JSON est indenté de deux espaces. Un fichier lisible dans un éditeur de
 texte est ce qui rend la portabilité réelle plutôt que théorique — l'utilisateur peut constater de
@@ -95,15 +113,19 @@ Elle ne couvre volontairement pas `exportedAt`, qui diffère par construction.
 
 | Version | Contenu | Statut |
 | --- | --- | --- |
-| 1 | `data` en version 1 : revenus et abonnements | Courante |
-| 2 | Réservée à la fonctionnalité 003 : ajout des dépenses. Ajout purement additif ; la migration ascendante est celle du document, déjà prévue par le contrat de stockage de 002. | À venir |
+| 1 | `data` en version 1 : revenus et abonnements | Acceptée, migrée à la lecture |
+| 2 | `data` en version 2 : ajout des dépenses. Ajout purement additif ; la migration ascendante est celle du document. | Acceptée, migrée à la lecture |
+| 3 | `data` en version 3 : ajout des enveloppes budgétaires. Ajout purement additif, comme le précédent. | **Courante** |
 
-> **EF-024 est sans effet tant que la version 1 est la seule existante.** Accepter et migrer un
-> fichier d'une version antérieure n'est ni implémentable ni testable aujourd'hui : il n'existe aucune
-> version antérieure. L'exigence s'activera avec la version 2, introduite par la fonctionnalité 003 ;
-> c'est à ce moment-là que la migration ascendante devra être branchée sur le chemin d'import et
-> couverte par un test. Ce n'est donc pas un oubli de couverture, mais une exigence en attente de son
-> déclencheur.
+> **EF-024 est active depuis la fonctionnalité 003**, qui a porté le document en version 2. Un
+> fichier d'export de format 1 est accepté et son contenu migré à la lecture, sans perte. Le
+> comportement est couvert par les tests de `src/features/budget/transfer.test.ts`.
+>
+> **Étendu à la version 3 par la fonctionnalité 001.** Un fichier de format 1 traverse désormais
+> **deux** migrations d'affilée avant d'être relu. Le passage en version 3 n'a demandé aucune
+> modification du code d'export ni d'import — seulement le report du numéro et la mise à jour des
+> témoins de test. C'est la deuxième vérification, après 003, que ce contrat est bien indifférent
+> au contenu du document.
 
 Règles applicables à toute version future :
 

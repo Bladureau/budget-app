@@ -19,8 +19,8 @@ import type { BudgetDocument } from "@/features/budget/types";
 /** Marqueur d'identification. Distingue un fichier étranger d'un export abîmé. */
 export const APPLICATION_MARKER = "budget-app";
 
-/** Version du format d'échange. Suit celle du document : les deux avancent ensemble. */
-export const FORMAT_VERSION = 1;
+/** Version du format d’échange. Suit celle du document : les deux avancent ensemble. */
+export const FORMAT_VERSION = 3;
 
 export type ImportRefusal = "notAnExport" | "futureVersion" | "corrupted";
 

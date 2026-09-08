@@ -37,12 +37,20 @@ const assurance: Subscription = {
 };
 
 const documentComplet: BudgetDocument = {
-  version: 1,
+  version: 3,
   incomes: [salaire, prime],
   subscriptions: [assurance],
+  expenses: [],
+  envelopes: [],
 };
 
-const documentVide: BudgetDocument = { version: 1, incomes: [], subscriptions: [] };
+const documentVide: BudgetDocument = {
+  version: 3,
+  incomes: [],
+  subscriptions: [],
+  expenses: [],
+  envelopes: [],
+};
 
 const DATE_EXPORT = new Date("2026-09-06T09:12:33.000Z");
 
@@ -364,7 +372,13 @@ describe("Fidélité de l’aller-retour", () => {
       amounts: [{ amountCents: 777 + i, effectiveFrom: "2026-01-07" }],
       pauses: [],
     }));
-    const volumineux: BudgetDocument = { version: 1, incomes, subscriptions };
+    const volumineux: BudgetDocument = {
+      version: 3,
+      incomes,
+      subscriptions,
+      expenses: [],
+      envelopes: [],
+    };
 
     const importe = parseImport(serializeExport(volumineux, DATE_EXPORT));
     expect(importe.ok).toBe(true);
@@ -377,7 +391,7 @@ describe("Fidélité de l’aller-retour", () => {
 
   it("conserve les montants exacts au centime, montant maximal inclus (CS-004)", () => {
     const extremes: BudgetDocument = {
-      version: 1,
+      version: 3,
       incomes: [
         { id: "min", label: "Un centime", amountCents: 1, kind: "oneOff", date: "2026-01-01" },
         {
@@ -390,6 +404,8 @@ describe("Fidélité de l’aller-retour", () => {
         { id: "impair", label: "Impair", amountCents: 3333, kind: "oneOff", date: "2026-01-03" },
       ],
       subscriptions: [],
+      expenses: [],
+      envelopes: [],
     };
 
     const importe = parseImport(serializeExport(extremes, DATE_EXPORT));
@@ -403,7 +419,7 @@ describe("Fidélité de l’aller-retour", () => {
 
   it("restitue accents et emoji à l’identique (CS-010)", () => {
     const accentue: BudgetDocument = {
-      version: 1,
+      version: 3,
       incomes: [
         {
           id: "accents",
@@ -424,6 +440,8 @@ describe("Fidélité de l’aller-retour", () => {
           pauses: [],
         },
       ],
+      expenses: [],
+      envelopes: [],
     };
 
     const importe = parseImport(serializeExport(accentue, DATE_EXPORT));
@@ -432,5 +450,125 @@ describe("Fidélité de l’aller-retour", () => {
 
     expect(importe.document.incomes[0].label).toBe("Prime d’été — café & thé 🎉");
     expect(importe.document.subscriptions[0].label).toBe("Électricité ⚡ (à régler)");
+  });
+});
+
+// --- T018 : EF-024 de la fonctionnalité 004, activée par le passage en version 2 --------
+// Portée en version 3 par la fonctionnalité 001 : la migration compte désormais deux étapes.
+
+describe("parseImport — fichier d’une version antérieure (EF-024)", () => {
+  /**
+   * Jusqu'au passage du document en version 2, EF-024 était sans objet : il n'existait
+   * aucune version antérieure. Le document étant passé en version 3, ce fichier de format 1
+   * traverse maintenant **les deux** migrations d'affilée.
+   */
+  const fichierFormat1 = JSON.stringify({
+    application: APPLICATION_MARKER,
+    formatVersion: 1,
+    exportedAt: "2026-09-06T09:12:33.000Z",
+    data: {
+      version: 1,
+      incomes: [
+        { id: "salaire", label: "Salaire", amountCents: 240000, kind: "oneOff", date: "2026-03-01" },
+      ],
+      subscriptions: [
+        {
+          id: "abo",
+          label: "Streaming",
+          periodicity: "monthly",
+          startDate: "2026-01-05",
+          endDate: null,
+          amounts: [{ amountCents: 1399, effectiveFrom: "2026-01-05" }],
+          pauses: [],
+        },
+      ],
+    },
+  });
+
+  it("accepte un export de format 1 et migre son contenu en version 3", () => {
+    const resultat = parseImport(fichierFormat1);
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+
+    expect(resultat.document.version).toBe(3);
+    expect(resultat.document.expenses).toEqual([]);
+    expect(resultat.document.envelopes).toEqual([]);
+  });
+
+  it("ne perd aucun revenu ni aucun abonnement à la migration", () => {
+    const resultat = parseImport(fichierFormat1);
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+
+    expect(resultat.document.incomes).toHaveLength(1);
+    expect(resultat.document.subscriptions).toHaveLength(1);
+    expect(resultat.document.incomes[0].amountCents).toBe(240000);
+    expect(resultat.document.subscriptions[0].amounts[0].amountCents).toBe(1399);
+  });
+
+  it("réexporte le contenu migré au format courant", () => {
+    const resultat = parseImport(fichierFormat1);
+    if (!resultat.ok) return;
+
+    const enveloppe = JSON.parse(serializeExport(resultat.document, DATE_EXPORT));
+    expect(enveloppe.formatVersion).toBe(3);
+    expect(enveloppe.data.version).toBe(3);
+  });
+});
+
+// --- Scénario 11 du guide de la fonctionnalité 001 : export après migration ---------------
+
+describe("aller-retour avec des enveloppes (fonctionnalité 001)", () => {
+  const avecEnveloppes: BudgetDocument = {
+    version: 3,
+    incomes: [salaire],
+    subscriptions: [],
+    expenses: [
+      { id: "d1", amountCents: 12050, date: "2026-09-03", category: "Courses" },
+      { id: "d2", amountCents: 3000, date: "2026-09-04", category: null },
+    ],
+    envelopes: [
+      { id: "e1", category: "Courses", month: "2026-09", limitCents: 40000 },
+      { id: "e2", category: "Loisirs", month: "2026-09", limitCents: 0 },
+    ],
+  };
+
+  it("annonce la version 3 dans l'en-tete et dans le document", () => {
+    const enveloppe = JSON.parse(serializeExport(avecEnveloppes, DATE_EXPORT));
+    expect(enveloppe.formatVersion).toBe(3);
+    expect(enveloppe.data.version).toBe(3);
+    expect(enveloppe.data.envelopes).toHaveLength(2);
+  });
+
+  it("restitue les enveloppes a l'identique, plafond nul compris", () => {
+    const importe = parseImport(serializeExport(avecEnveloppes, DATE_EXPORT));
+    expect(importe.ok).toBe(true);
+    if (!importe.ok) return;
+
+    expect(importe.document).toEqual(avecEnveloppes);
+    // Le plafond nul est une intention, pas une absence : il doit survivre a l'aller-retour.
+    expect(importe.document.envelopes[1].limitCents).toBe(0);
+  });
+
+  it("refuse un plafond negatif venu d'un fichier", () => {
+    const abime = {
+      ...avecEnveloppes,
+      envelopes: [{ id: "e1", category: "Courses", month: "2026-09", limitCents: -1 }],
+    };
+    const resultat = parseImport(fichierValide({ data: abime }));
+    expect(resultat.ok).toBe(false);
+    if (!resultat.ok) expect(resultat.reason).toBe("corrupted");
+  });
+
+  it("refuse un doublon de couple categorie/mois venu d'un fichier (EF-005)", () => {
+    const abime = {
+      ...avecEnveloppes,
+      envelopes: [
+        { id: "e1", category: "Courses", month: "2026-09", limitCents: 100 },
+        { id: "e2", category: "Courses", month: "2026-09", limitCents: 200 },
+      ],
+    };
+    const resultat = parseImport(fichierValide({ data: abime }));
+    expect(resultat.ok).toBe(false);
   });
 });
