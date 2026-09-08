@@ -22,10 +22,10 @@ chronologiquement par ordre alphabétique dans un explorateur de fichiers.
 ```json
 {
   "application": "budget-app",
-  "formatVersion": 2,
+  "formatVersion": 3,
   "exportedAt": "2026-09-06T09:12:33.000Z",
   "data": {
-    "version": 2,
+    "version": 3,
     "incomes": [
       {
         "id": "3f2a…",
@@ -55,6 +55,14 @@ chronologiquement par ordre alphabétique dans un explorateur de fichiers.
         "date": "2026-09-06",
         "label": "Boulangerie",
         "category": "Courses"
+      }
+    ],
+    "envelopes": [
+      {
+        "id": "9a52…",
+        "category": "Courses",
+        "month": "2026-09",
+        "limitCents": 40000
       }
     ]
   }
@@ -106,11 +114,18 @@ Elle ne couvre volontairement pas `exportedAt`, qui diffère par construction.
 | Version | Contenu | Statut |
 | --- | --- | --- |
 | 1 | `data` en version 1 : revenus et abonnements | Acceptée, migrée à la lecture |
-| 2 | `data` en version 2 : ajout des dépenses. Ajout purement additif ; la migration ascendante est celle du document. | **Courante** |
+| 2 | `data` en version 2 : ajout des dépenses. Ajout purement additif ; la migration ascendante est celle du document. | Acceptée, migrée à la lecture |
+| 3 | `data` en version 3 : ajout des enveloppes budgétaires. Ajout purement additif, comme le précédent. | **Courante** |
 
 > **EF-024 est active depuis la fonctionnalité 003**, qui a porté le document en version 2. Un
 > fichier d'export de format 1 est accepté et son contenu migré à la lecture, sans perte. Le
 > comportement est couvert par les tests de `src/features/budget/transfer.test.ts`.
+>
+> **Étendu à la version 3 par la fonctionnalité 001.** Un fichier de format 1 traverse désormais
+> **deux** migrations d'affilée avant d'être relu. Le passage en version 3 n'a demandé aucune
+> modification du code d'export ni d'import — seulement le report du numéro et la mise à jour des
+> témoins de test. C'est la deuxième vérification, après 003, que ce contrat est bien indifférent
+> au contenu du document.
 
 Règles applicables à toute version future :
 

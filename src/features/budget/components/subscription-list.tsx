@@ -117,21 +117,25 @@ export function SubscriptionList() {
                           ? formatCents(imputation[0].amountCents)
                           : "—"}
                       </span>
+                      {/*
+                        Nom accessible porté par `aria-label` : accolé à un `sr-only`,
+                        l’espace séparateur disparaît au calcul du nom accessible.
+                      */}
                       <button
                         type="button"
                         className={buttonClassName}
+                        aria-label={`Modifier l’abonnement ${abonnement.label}`}
                         onClick={() => setEnEdition(abonnement)}
                       >
                         Modifier
-                        <span className="sr-only"> l’abonnement {abonnement.label}</span>
                       </button>
                       <button
                         type="button"
                         className={buttonClassName}
+                        aria-label={`Supprimer l’abonnement ${abonnement.label}`}
                         onClick={() => removeSubscription(abonnement.id)}
                       >
                         Supprimer
-                        <span className="sr-only"> l’abonnement {abonnement.label}</span>
                       </button>
                     </div>
                   </div>

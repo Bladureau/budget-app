@@ -79,9 +79,13 @@ ces montants.
 5. **Étant donné** une catégorie comportant des dépenses mais aucun plafond défini pour le mois,
    **quand** l'utilisateur consulte le mois, **alors** la dépense de cette catégorie apparaît dans un
    regroupement « Non budgété » avec son total, et est exclue des totaux budgétés.
-6. **Étant donné** un remboursement ou une dépense de montant négatif dans une catégorie, **quand**
-   l'utilisateur consulte le mois, **alors** le remboursement diminue le montant dépensé de
-   l'enveloppe.
+6. **Étant donné** une dépense **sans catégorie**, **quand** l'utilisateur consulte le mois,
+   **alors** elle apparaît elle aussi dans le regroupement « Non budgété », au même titre qu'une
+   catégorie non plafonnée.
+
+   > *Scénario remplacé le 2026-09-06.* Il portait sur les remboursements et les montants négatifs,
+   > devenus hors périmètre par l'amendement d'EF-009. Le cas qui le remplace existe réellement
+   > depuis que la catégorie est facultative.
 
 ---
 
@@ -194,10 +198,23 @@ que les montants dépensés du nouveau mois repartent de zéro.
 - **EF-007** : Le système DOIT calculer le montant dépensé de chaque enveloppe comme la somme des
   transactions de dépense dont la catégorie correspond à l'enveloppe et dont la date tombe dans le
   mois de l'enveloppe.
-- **EF-008** : Le système DOIT exclure les écritures de revenu et de virement du calcul de dépense
-  des enveloppes.
-- **EF-009** : Le système DOIT traiter les remboursements et les montants de dépense négatifs comme
-  diminuant le montant dépensé de l'enveloppe.
+- **EF-008** : Les enveloppes NE DOIVENT mesurer que des dépenses.
+
+  > **Amendée le 2026-09-06.** La rédaction initiale imposait d'exclure « les écritures de revenu et
+  > de virement ». Le modèle de données construit par la fonctionnalité 003 ne comporte aucun
+  > discriminant de type : une dépense est une dépense, les revenus sont une entité distincte gérée
+  > par la fonctionnalité 002, et les virements n'existent pas. L'exigence est donc satisfaite par
+  > construction ; elle est reformulée pour dire ce qu'elle garantit plutôt que ce qu'elle exclut.
+- **EF-009** : Les remboursements sont **hors périmètre** de cette fonctionnalité.
+
+  > **Amendée le 2026-09-06.** La rédaction initiale demandait que « les remboursements et les
+  > montants de dépense négatifs » diminuent le montant dépensé d'une enveloppe. Cette exigence est
+  > **inapplicable** sur le modèle construit : `Expense.amountCents` est validé strictement positif
+  > depuis la fonctionnalité 003, à la saisie comme à la relecture. Autoriser les montants négatifs
+  > supposerait de rouvrir la validation monétaire, donc l'anneau du reste mensuel, l'allocation
+  > quotidienne et le journal — un changement de modèle disproportionné au regard d'un besoin jamais
+  > exprimé autrement que par cette phrase, écrite avant que les dépenses n'existent. Un
+  > remboursement relèverait d'une fonctionnalité dédiée.
 - **EF-010** : Le système DOIT recalculer les enveloppes concernées à chaque création, modification
   ou suppression d'une transaction, y compris recalculer l'ancien et le nouveau mois lorsque la date
   ou la catégorie d'une transaction change.
@@ -278,9 +295,19 @@ que les montants dépensés du nouveau mois repartent de zéro.
   minimum un montant, une date, une catégorie et un type distinguant dépense, revenu et virement. Si
   la saisie des transactions n'est ni spécifiée ni construite, cette fonctionnalité ne peut pas être
   menée à terme.
-- **Les catégories existent déjà** sous forme de liste gérée par l'utilisateur, ou sont créées dans
-  le cadre de la saisie des transactions. La gestion de la liste des catégories (création, renommage,
-  suppression) est hors périmètre de cette fonctionnalité.
+- **Les catégories sont du texte libre et facultatif**, et non une liste gérée. La fonctionnalité
+  003 en a fait une chaîne de caractères saisie librement, pour ne pas ralentir l'enregistrement
+  d'une dépense. Une enveloppe référence donc sa catégorie par son **texte**, la comparaison étant
+  sensible à la casse et aux accents comme partout ailleurs dans l'application. Deux conséquences,
+  assumées :
+
+  - le cas limite « une catégorie est renommée ou supprimée alors que des limites la référencent »
+    devient le **cas courant** : renommer la catégorie d'une dépense la détache de son enveloppe ;
+  - le regroupement « Non budgété » d'EF-012 absorbe **deux populations** — les catégories non
+    plafonnées **et** les dépenses sans catégorie. Dans les deux cas, la dépense n'était pas prévue,
+    ce qui reste cohérent.
+
+  *(Hypothèse corrigée le 2026-09-06 : elle supposait une liste gérée qui n'a pas été construite.)*
 - **Une devise unique** est utilisée partout, conformément au périmètre mono-utilisateur et local de
   la constitution du projet. Les enveloppes multi-devises sont hors périmètre.
 - **Les mois sont des mois calendaires** dans le fuseau horaire local de l'utilisateur. Les périodes

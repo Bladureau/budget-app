@@ -21,6 +21,24 @@ export type ParseAmountResult =
   | { ok: false; reason: AmountError };
 
 /**
+ * Motifs de refus d’un **plafond** d’enveloppe (fonctionnalité 001).
+ *
+ * Distincts de ceux d’un montant : zéro est un plafond valide — il signifie « ne rien
+ * dépenser ici » — alors qu’il n’est jamais un montant valide. Le refus porte donc sur la
+ * négativité, pas sur la non-positivité, et le message affiché peut le dire exactement.
+ */
+export type LimitError =
+  | "empty"
+  | "notANumber"
+  | "tooManyDecimals"
+  | "negative"
+  | "tooLarge";
+
+export type ParseLimitResult =
+  | { ok: true; cents: Cents }
+  | { ok: false; reason: LimitError };
+
+/**
  * Plafond de saisie : 90 000 000,00 €. Très au-delà de tout usage réaliste, et deux ordres
  * de grandeur sous `Number.MAX_SAFE_INTEGER` exprimé en centimes, ce qui garantit que les
  * totalisations restent exactes même sur des milliers d’éléments.
@@ -43,8 +61,11 @@ const formateurEuro = new Intl.NumberFormat("fr-FR", {
  * Accepte indifféremment la virgule et le point comme séparateur décimal (EF-028) et tolère
  * les espaces de milliers. Ne renvoie jamais `NaN` : l’échec porte un motif exploitable pour
  * composer le message affiché à côté du champ (EF-004).
+ *
+ * Le noyau `analyserMontant` fait tout le travail sauf une chose : la règle du montant
+ * strictement positif, qui appartient au montant et non au plafond.
  */
-export function parseAmountInput(raw: string): ParseAmountResult {
+function analyserMontant(raw: string): ParseLimitResult {
   const nettoye = raw.replace(ESPACES, "");
   if (nettoye === "") return { ok: false, reason: "empty" };
 
@@ -52,7 +73,7 @@ export function parseAmountInput(raw: string): ParseAmountResult {
   if (!correspondance) {
     // Un signe moins est syntaxiquement rejeté ici, mais l’utilisateur a besoin de savoir
     // que c’est la négativité qui pose problème, pas la forme.
-    if (/^-/.test(nettoye)) return { ok: false, reason: "notPositive" };
+    if (/^-/.test(nettoye)) return { ok: false, reason: "negative" };
     return { ok: false, reason: "notANumber" };
   }
 
@@ -62,10 +83,30 @@ export function parseAmountInput(raw: string): ParseAmountResult {
   const centimes =
     Number(partieEntiere) * 100 + Number(partieDecimale.padEnd(2, "0"));
 
-  if (centimes <= 0) return { ok: false, reason: "notPositive" };
   if (centimes > MAX_CENTS) return { ok: false, reason: "tooLarge" };
 
   return { ok: true, cents: centimes };
+}
+
+export function parseAmountInput(raw: string): ParseAmountResult {
+  const noyau = analyserMontant(raw);
+  if (!noyau.ok) {
+    // Pour un montant, négatif et nul relèvent du même refus : « supérieur à zéro ».
+    return { ok: false, reason: noyau.reason === "negative" ? "notPositive" : noyau.reason };
+  }
+  if (noyau.cents <= 0) return { ok: false, reason: "notPositive" };
+  return noyau;
+}
+
+/**
+ * Analyse un **plafond** d’enveloppe : même grammaire qu’un montant, mais zéro accepté.
+ *
+ * Partage le noyau d’analyse avec `parseAmountInput` plutôt que de redéfinir la grammaire :
+ * deux expressions régulières concurrentes finiraient par diverger, et une saisie serait
+ * alors acceptée ici et refusée ailleurs.
+ */
+export function parseLimitInput(raw: string): ParseLimitResult {
+  return analyserMontant(raw);
 }
 
 /**

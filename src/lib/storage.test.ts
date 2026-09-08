@@ -3,16 +3,17 @@ import {
   CORRUPTED_KEY_PREFIX,
   STORAGE_KEY,
   loadDocument,
+  newId,
   parseDocument,
   saveDocument,
 } from "@/lib/storage";
 import { DOCUMENT_VERSION, emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument } from "@/features/budget/types";
 
-// Document témoin, au format courant. Passé en version 2 par la fonctionnalité 003 : la
-// migration 1 → 2 est vérifiée séparément par le bloc « Migration 1 → 2 » plus bas.
+// Document témoin, au format courant. Porté en version 3 par la fonctionnalité 001 ; les
+// migrations 1 → 2 et 2 → 3 sont vérifiées séparément par leurs blocs dédiés plus bas.
 const documentValide: BudgetDocument = {
-  version: 2,
+  version: 3,
   incomes: [
     {
       id: "revenu-1",
@@ -44,6 +45,9 @@ const documentValide: BudgetDocument = {
   ],
   expenses: [
     { id: "depense-1", amountCents: 1240, date: "2026-09-06", label: "Boulangerie", category: "Courses" },
+  ],
+  envelopes: [
+    { id: "enveloppe-1", category: "Courses", month: "2026-09", limitCents: 40000 },
   ],
 };
 
@@ -390,7 +394,9 @@ describe("Migration 1 → 2", () => {
     expect(resultat.ok).toBe(true);
     if (!resultat.ok) return;
 
-    expect(resultat.value.version).toBe(2);
+    // La version terminale est 3 depuis la fonctionnalité 001 : le document traverse les
+    // deux migrations d'affilée.
+    expect(resultat.value.version).toBe(3);
     expect(resultat.value.incomes).toHaveLength(3);
     expect(resultat.value.subscriptions).toHaveLength(2);
   });
@@ -414,22 +420,21 @@ describe("Migration 1 → 2", () => {
     const resultat = parseDocument({ version: 1, incomes: [], subscriptions: [] });
     expect(resultat.ok).toBe(true);
     if (resultat.ok) {
-      expect(resultat.value.version).toBe(2);
+      expect(resultat.value.version).toBe(3);
       expect(resultat.value.expenses).toEqual([]);
+      expect(resultat.value.envelopes).toEqual([]);
     }
   });
 
-  it("laisse inchangé un document déjà en version 2", () => {
+  it("poursuit la migration d'un document v2 jusqu'en v3", () => {
     const v2 = { ...structuredClone(documentV1), version: 2, expenses: [] };
     const resultat = parseDocument(v2);
     expect(resultat.ok).toBe(true);
-    if (resultat.ok) expect(resultat.value).toEqual(v2);
-  });
-
-  it("refuse une version postérieure sans y toucher", () => {
-    const resultat = parseDocument({ version: 3, incomes: [], subscriptions: [], expenses: [] });
-    expect(resultat.ok).toBe(false);
-    if (!resultat.ok) expect(resultat.reason).toBe("futureVersion");
+    if (resultat.ok) {
+      expect(resultat.value.version).toBe(3);
+      expect(resultat.value.incomes).toEqual(v2.incomes);
+      expect(resultat.value.subscriptions).toEqual(v2.subscriptions);
+    }
   });
 
   it("survit à un aller-retour complet par le stockage", () => {
@@ -439,7 +444,7 @@ describe("Migration 1 → 2", () => {
     expect(charge.quarantined).toBe(false);
     expect(charge.document.incomes).toEqual(documentV1.incomes);
     expect(charge.document.subscriptions).toEqual(documentV1.subscriptions);
-    expect(charge.document.version).toBe(2);
+    expect(charge.document.version).toBe(3);
   });
 });
 
@@ -522,5 +527,259 @@ describe("Analyseur de dépense", () => {
 
   it("refuse un document v2 dont la collection des dépenses est absente", () => {
     expect(parseDocument({ version: 2, incomes: [], subscriptions: [] }).ok).toBe(false);
+  });
+});
+
+// --- Fonctionnalité 001 : migration 2 → 3 et enveloppes -------------------------------
+
+/** Document v2 tel qu'il existe chez un utilisateur ayant employé les fonctionnalités 002 et 003. */
+const documentV2 = {
+  version: 2,
+  incomes: [
+    {
+      id: "salaire-v2",
+      label: "Salaire",
+      amountCents: 240000,
+      kind: "recurring",
+      periodicity: "monthly",
+      startDate: "2026-01-05",
+      endDate: null,
+    },
+  ],
+  subscriptions: [
+    {
+      id: "abo-v2",
+      label: "Streaming",
+      periodicity: "monthly",
+      startDate: "2026-01-05",
+      endDate: null,
+      amounts: [{ amountCents: 1399, effectiveFrom: "2026-01-05" }],
+      pauses: [],
+    },
+  ],
+  expenses: [
+    { id: "dep-1", amountCents: 1240, date: "2026-09-06", label: "Boulangerie", category: "Courses" },
+    { id: "dep-2", amountCents: 3500, date: "2026-09-05", label: "Pharmacie", category: null },
+    { id: "dep-3", amountCents: 890, date: "2026-08-30", label: "Café", category: "Sorties" },
+  ],
+};
+
+describe("Migration 2 → 3", () => {
+  it("ne perd aucune dépense", () => {
+    const resultat = parseDocument(structuredClone(documentV2));
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+
+    expect(resultat.value.version).toBe(3);
+    expect(resultat.value.expenses).toHaveLength(3);
+    expect(resultat.value.expenses).toEqual(documentV2.expenses);
+  });
+
+  it("ne perd ni revenu ni abonnement", () => {
+    const resultat = parseDocument(structuredClone(documentV2));
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+
+    expect(resultat.value.incomes).toEqual(documentV2.incomes);
+    expect(resultat.value.subscriptions).toEqual(documentV2.subscriptions);
+  });
+
+  it("initialise la collection des enveloppes à vide", () => {
+    const resultat = parseDocument(structuredClone(documentV2));
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.value.envelopes).toEqual([]);
+  });
+
+  it("fait traverser les deux migrations à un document v1", () => {
+    const v1 = {
+      version: 1,
+      incomes: documentV2.incomes,
+      subscriptions: documentV2.subscriptions,
+    };
+    const resultat = parseDocument(structuredClone(v1));
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+
+    expect(resultat.value.version).toBe(3);
+    expect(resultat.value.expenses).toEqual([]);
+    expect(resultat.value.envelopes).toEqual([]);
+    expect(resultat.value.incomes).toEqual(v1.incomes);
+    expect(resultat.value.subscriptions).toEqual(v1.subscriptions);
+  });
+
+  it("laisse inchangé un document déjà en version 3", () => {
+    const v3 = { ...structuredClone(documentV2), version: 3, envelopes: [] };
+    const resultat = parseDocument(v3);
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.value).toEqual(v3);
+  });
+
+  it("refuse une version postérieure sans y toucher", () => {
+    const resultat = parseDocument({
+      version: 4,
+      incomes: [],
+      subscriptions: [],
+      expenses: [],
+      envelopes: [],
+    });
+    expect(resultat.ok).toBe(false);
+    if (!resultat.ok) expect(resultat.reason).toBe("futureVersion");
+  });
+
+  it("survit à un aller-retour complet par le stockage", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(documentV2));
+    const charge = loadDocument();
+
+    expect(charge.quarantined).toBe(false);
+    expect(charge.document.version).toBe(3);
+    expect(charge.document.expenses).toEqual(documentV2.expenses);
+  });
+});
+
+describe("Analyseur d'enveloppe", () => {
+  const enveloppeValide = {
+    id: "env-1",
+    category: "Courses",
+    month: "2026-03",
+    limitCents: 40000,
+  };
+
+  function avecEnveloppe(enveloppe: unknown) {
+    return parseDocument({
+      version: 3,
+      incomes: [],
+      subscriptions: [],
+      expenses: [],
+      envelopes: [enveloppe],
+    });
+  }
+
+  it("accepte une enveloppe conforme", () => {
+    const resultat = avecEnveloppe(enveloppeValide);
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.value.envelopes[0]).toEqual(enveloppeValide);
+  });
+
+  it("accepte un plafond nul, qui signifie « ne rien dépenser ici »", () => {
+    const resultat = avecEnveloppe({ ...enveloppeValide, limitCents: 0 });
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.value.envelopes[0].limitCents).toBe(0);
+  });
+
+  it("refuse un plafond négatif ou non entier", () => {
+    for (const plafond of [-1, -40000, 12.5, "40000", null]) {
+      expect(avecEnveloppe({ ...enveloppeValide, limitCents: plafond }).ok).toBe(false);
+    }
+  });
+
+  it("refuse une catégorie vide, absente ou trop longue", () => {
+    for (const categorie of ["", "   ", undefined, null, "x".repeat(81), 42]) {
+      expect(avecEnveloppe({ ...enveloppeValide, category: categorie }).ok).toBe(false);
+    }
+  });
+
+  it("refuse un mois mal formé", () => {
+    for (const mois of ["2026-13", "2026", "03-2026", "2026-03-01", "", 202603]) {
+      expect(avecEnveloppe({ ...enveloppeValide, month: mois }).ok).toBe(false);
+    }
+  });
+
+  it("refuse un doublon du couple catégorie / mois (EF-005)", () => {
+    const resultat = parseDocument({
+      version: 3,
+      incomes: [],
+      subscriptions: [],
+      expenses: [],
+      envelopes: [
+        { id: "a", category: "Courses", month: "2026-03", limitCents: 40000 },
+        { id: "b", category: "Courses", month: "2026-03", limitCents: 50000 },
+      ],
+    });
+    expect(resultat.ok).toBe(false);
+    if (!resultat.ok) expect(resultat.reason).toBe("invalidData");
+  });
+
+  it("accepte la même catégorie sur deux mois différents", () => {
+    const resultat = parseDocument({
+      version: 3,
+      incomes: [],
+      subscriptions: [],
+      expenses: [],
+      envelopes: [
+        { id: "a", category: "Courses", month: "2026-03", limitCents: 40000 },
+        { id: "b", category: "Courses", month: "2026-04", limitCents: 50000 },
+      ],
+    });
+    expect(resultat.ok).toBe(true);
+  });
+
+  it("refuse un identifiant en doublon avec une dépense", () => {
+    const resultat = parseDocument({
+      version: 3,
+      incomes: [],
+      subscriptions: [],
+      expenses: [{ id: "meme", amountCents: 500, date: "2026-03-01", category: null }],
+      envelopes: [{ id: "meme", category: "Courses", month: "2026-03", limitCents: 40000 }],
+    });
+    expect(resultat.ok).toBe(false);
+  });
+
+  it("refuse le document entier si une seule enveloppe est invalide", () => {
+    const resultat = parseDocument({
+      version: 3,
+      incomes: [],
+      subscriptions: [],
+      expenses: [],
+      envelopes: [
+        enveloppeValide,
+        { id: "env-2", category: "Transport", month: "2026-03", limitCents: -1 },
+      ],
+    });
+    expect(resultat.ok).toBe(false);
+  });
+
+  it("refuse un document v3 dont la collection des enveloppes est absente", () => {
+    expect(
+      parseDocument({ version: 3, incomes: [], subscriptions: [], expenses: [] }).ok,
+    ).toBe(false);
+  });
+});
+
+// --- Identifiants hors contexte sécurisé (fonctionnalité 005) ---------------------------
+
+describe("newId hors contexte sécurisé", () => {
+  const UUID_V4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  it("produit un UUID v4 quand crypto.randomUUID est disponible", () => {
+    expect(newId()).toMatch(UUID_V4);
+  });
+
+  it("produit encore un UUID v4 quand crypto.randomUUID est absent", () => {
+    // C'est exactement la situation d'un téléphone ouvrant http://10.0.0.4:3000 : hors
+    // contexte sécurisé, `randomUUID` n'existe pas. Sans repli, la première saisie
+    // échouerait — et c'est précisément l'usage que la fonctionnalité 005 rend courant.
+    const original = crypto.randomUUID;
+    // @ts-expect-error — on simule un contexte non sécurisé, où la méthode est absente.
+    delete crypto.randomUUID;
+
+    try {
+      expect(newId()).toMatch(UUID_V4);
+    } finally {
+      crypto.randomUUID = original;
+    }
+  });
+
+  it("ne produit pas deux fois le même identifiant sans randomUUID", () => {
+    const original = crypto.randomUUID;
+    // @ts-expect-error — voir ci-dessus.
+    delete crypto.randomUUID;
+
+    try {
+      const identifiants = new Set(Array.from({ length: 500 }, () => newId()));
+      expect(identifiants.size).toBe(500);
+    } finally {
+      crypto.randomUUID = original;
+    }
   });
 });

@@ -194,17 +194,20 @@ export function ExpenseJournal() {
                                 <span className="font-semibold tabular-nums">
                                   {formatCents(depense.amountCents)}
                                 </span>
+                                {/*
+                                  Nom accessible porté par `aria-label` : accolé à un
+                                  `sr-only`, l’espace séparateur disparaît au calcul du nom
+                                  et le lecteur d’écran annonçait « Détailde Marché ».
+                                */}
                                 <button
                                   type="button"
                                   className={buttonClassName}
+                                  aria-label={`Détail de ${
+                                    depense.label ?? "la dépense"
+                                  } du ${formatIsoDateFr(depense.date)}`}
                                   onClick={() => setEnEdition(depense.id)}
                                 >
                                   Détail
-                                  <span className="sr-only">
-                                    {" "}
-                                    de {depense.label ?? "la dépense"} du{" "}
-                                    {formatIsoDateFr(depense.date)}
-                                  </span>
                                 </button>
                               </div>
                             </div>
