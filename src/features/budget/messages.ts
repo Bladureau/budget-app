@@ -20,3 +20,153 @@ export const LABEL_REQUIRED = "Saisissez un libellé.";
 export const LABEL_TOO_LONG = "Le libellé ne peut pas dépasser 80 caractères.";
 export const END_BEFORE_START =
   "La date de fin ne peut pas être antérieure à la date de début.";
+
+// --- Export et import des données (fonctionnalité 004) --------------------------------
+
+import type { ImportRefusal } from "@/features/budget/transfer";
+
+/**
+ * Un message par motif de refus, chacun menant à une action corrective différente (CS-007).
+ * Un message générique laisserait l'utilisateur sans savoir s'il s'est trompé de fichier,
+ * s'il doit mettre à jour l'application, ou si sa sauvegarde est perdue.
+ */
+export const IMPORT_REFUSAL_MESSAGES: Readonly<Record<ImportRefusal, string>> = {
+  notAnExport:
+    "Ce fichier n’est pas une sauvegarde de cette application. Vérifiez que vous avez bien sélectionné un fichier produit par l’export.",
+  futureVersion:
+    "Ce fichier a été créé par une version plus récente de l’application. Mettez l’application à jour avant de l’importer.",
+  corrupted:
+    "Ce fichier est bien une sauvegarde de cette application, mais son contenu est abîmé ou incomplet. Utilisez une autre sauvegarde.",
+};
+
+export const EXPORT_FAILED =
+  "La sauvegarde n’a pas pu être produite. Votre navigateur a peut-être bloqué le téléchargement.";
+
+export const IMPORT_WRITE_FAILED =
+  "Les données importées n’ont pas pu être enregistrées. Vos données précédentes sont intactes.";
+
+export const EXPORT_REFLECTS_SAVED_DATA =
+  "La sauvegarde porte sur vos données enregistrées. Une saisie en cours non validée n’y figure pas.";
+
+export const DATA_STAYS_LOCAL =
+  "Le fichier est enregistré sur cet appareil et n’est envoyé nulle part.";
+
+// --- Dépenses et anneau (fonctionnalité 003) ------------------------------------------
+
+import type { RingStatus } from "@/features/budget/types";
+
+/**
+ * Libellés des quatre états de l'anneau. Le principe VII interdit que la couleur porte
+ * seule l'information : ces libellés sont la source, la couleur ne fait que renforcer.
+ */
+export const RING_STATUS_LABELS: Readonly<Record<RingStatus, string>> = {
+  untouched: "Rien de dépensé",
+  inProgress: "En cours",
+  exhausted: "Budget épuisé",
+  overspent: "Dépassement",
+};
+
+export const NO_BUDGET_YET =
+  "Renseignez vos revenus et vos abonnements ci-dessous pour connaître ce qu’il vous reste à dépenser.";
+
+export const NOTHING_LEFT_TO_SPREAD =
+  "Il n’y a plus rien à répartir sur les jours restants de ce mois.";
+
+export const NO_CARRY_OVER = "Premier jour du mois : pas de report.";
+
+export const EMPTY_JOURNAL =
+  "Aucune dépense enregistrée. Saisissez-en une ci-dessus pour commencer.";
+
+export const NO_SEARCH_RESULT = "Aucune dépense ne correspond à cette recherche.";
+
+export const EXPENSE_DELETE_CONFIRM =
+  "Supprimer cette dépense ? Elle sera retirée de vos totaux.";
+
+// --- Enveloppes budgétaires (fonctionnalité 001) --------------------------------------
+
+import type { EnvelopeState } from "@/features/budget/types";
+import type { LimitError } from "@/lib/money";
+
+/**
+ * Libellés des quatre états d'enveloppe (EF-017). Comme pour l'anneau, ils sont la source de
+ * l'information : la couleur ne fait que renforcer ce que le texte dit déjà.
+ */
+export const ENVELOPE_STATE_LABELS: Readonly<Record<EnvelopeState, string>> = {
+  unused: "Non entamée",
+  onTrack: "Maîtrisée",
+  nearingLimit: "Proche du plafond",
+  overBudget: "En dépassement",
+};
+
+export const NO_ENVELOPE_YET =
+  "Aucun plafond défini pour ce mois. Ajoutez-en un pour suivre vos dépenses par catégorie.";
+
+export const UNBUDGETED_EXPLANATION =
+  "Dépenses sans plafond : catégories non budgétées et dépenses sans catégorie.";
+
+export const ZERO_LIMIT_MEANING =
+  "Un plafond de 0,00 € signifie « ne rien dépenser dans cette catégorie ».";
+
+export const ENVELOPE_DELETE_HINT =
+  "Ses dépenses basculeront dans « Non budgété ».";
+
+export const NOTHING_TO_COPY =
+  "Le mois précédent ne comporte aucun plafond : il n’y a rien à copier.";
+
+export const COPY_REPLACE_CONFIRM =
+  "Ce mois comporte déjà des plafonds. Les copier remplacera ceux qui existent.";
+
+export const CATEGORY_REQUIRED = "Saisissez une catégorie.";
+
+/**
+ * Refus d'un plafond. Le message du négatif dit « négatif » et non « supérieur à zéro » :
+ * zéro est ici accepté, et un message qui l'exclurait serait faux.
+ */
+export const LIMIT_ERROR_MESSAGES: Readonly<Record<LimitError, string>> = {
+  empty: "Saisissez un plafond.",
+  notANumber: "Le plafond doit être un nombre, par exemple 400 ou 250,50.",
+  tooManyDecimals: "Le plafond ne peut pas comporter plus de deux décimales.",
+  negative: "Le plafond ne peut pas être négatif. Zéro est accepté.",
+  tooLarge: "Le plafond est trop élevé.",
+};
+
+// --- Synchronisation avec le stockage central (fonctionnalité 005) ---------------------
+
+import type { SyncState } from "@/features/budget/types";
+
+/**
+ * Un libellé par état de synchronisation (EF-018, principe VII).
+ *
+ * Chaque message dit **où sont les données**, pas seulement ce qui se passe : « hors
+ * connexion » n'apprend rien à qui veut savoir si sa dépense est perdue. C'est ce que
+ * demande CS-008 — comprendre en moins de cinq secondes que ce qu'on voit n'est pas
+ * synchronisé.
+ */
+export const SYNC_STATE_MESSAGES: Readonly<Record<SyncState, string>> = {
+  idle: "Synchronisé",
+  syncing: "Synchronisation en cours…",
+  offline:
+    "Hors connexion : ce budget est celui de la dernière synchronisation et peut ne pas être à jour.",
+  pending: "Modifications enregistrées sur cet appareil, pas encore synchronisées.",
+  conflict:
+    "Un autre appareil a modifié ce budget. Vos modifications sont conservées ici : choisissez laquelle garder.",
+  failed: "Échec de l’enregistrement. Vos saisies sont conservées sur cet appareil.",
+  unauthorized: "Cet appareil n’est pas autorisé à accéder au budget central.",
+};
+
+/**
+ * Cumul de `offline` et `pending`, cas nominal du récit 3. Il mérite son propre message :
+ * l'utilisateur doit apprendre d'un coup les deux choses qui l'intéressent — sa saisie est
+ * conservée, et elle n'est pas encore partie.
+ */
+export const SYNC_OFFLINE_PENDING =
+  "Hors connexion : vos saisies sont conservées sur cet appareil et rejoindront le budget central au retour du réseau.";
+
+export const SYNC_CONFLICT_KEEP_LOCAL = "Conserver mes modifications";
+export const SYNC_CONFLICT_KEEP_LOCAL_HINT =
+  "Les modifications faites sur l’autre appareil seront perdues.";
+export const SYNC_CONFLICT_TAKE_REMOTE = "Reprendre la version du serveur";
+export const SYNC_CONFLICT_TAKE_REMOTE_HINT =
+  "Les modifications faites sur cet appareil seront perdues.";
+export const SYNC_CONFLICT_EXPORT_HINT =
+  "Vous pouvez télécharger une sauvegarde avant de choisir.";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centsToInputValue, formatCents, parseAmountInput, sumCents } from "@/lib/money";
+import { centsToInputValue, formatCents, parseAmountInput, parseLimitInput, sumCents } from "@/lib/money";
 
 describe("parseAmountInput", () => {
   it("interprète la virgule et le point de façon identique (EF-028)", () => {
@@ -102,5 +102,52 @@ describe("centsToInputValue", () => {
     expect(centsToInputValue(1200)).toBe("12,00");
     expect(centsToInputValue(1204)).toBe("12,04");
     expect(centsToInputValue(4)).toBe("0,04");
+  });
+});
+
+// --- Plafonds d'enveloppe (fonctionnalite 001) -----------------------------------------
+
+describe("parseLimitInput", () => {
+  it("accepte zero, seul montant nul valide du projet (decision D7)", () => {
+    for (const saisie of ["0", "0,00", "0.0", "00"]) {
+      const resultat = parseLimitInput(saisie);
+      expect(resultat.ok).toBe(true);
+      if (resultat.ok) expect(resultat.cents).toBe(0);
+    }
+  });
+
+  it("refuse un plafond negatif en le nommant comme tel", () => {
+    for (const saisie of ["-1", "-0,01", "-250"]) {
+      const resultat = parseLimitInput(saisie);
+      expect(resultat.ok).toBe(false);
+      if (!resultat.ok) expect(resultat.reason).toBe("negative");
+    }
+  });
+
+  it("partage la grammaire des montants : virgule, point, espaces de milliers", () => {
+    for (const [saisie, centimes] of [
+      ["12,40", 1240],
+      ["12.40", 1240],
+      ["1 000", 100000],
+      ["400", 40000],
+    ] as const) {
+      const resultat = parseLimitInput(saisie);
+      expect(resultat.ok).toBe(true);
+      if (resultat.ok) expect(resultat.cents).toBe(centimes);
+    }
+  });
+
+  it("refuse les memes formes invalides qu'un montant", () => {
+    expect(parseLimitInput("").ok).toBe(false);
+    expect(parseLimitInput("abc").ok).toBe(false);
+    expect(parseLimitInput("1,234").ok).toBe(false);
+    expect(parseLimitInput("90000000,01").ok).toBe(false);
+  });
+
+  it("ne renvoie jamais NaN", () => {
+    for (const saisie of ["", "abc", "-", "1,2,3", "0"]) {
+      const resultat = parseLimitInput(saisie);
+      if (resultat.ok) expect(Number.isNaN(resultat.cents)).toBe(false);
+    }
   });
 });
