@@ -1,0 +1,34 @@
+# Ce qui ne doit jamais entrer dans le contexte de construction.
+#
+# Les deux premières entrées ne sont pas une optimisation : `.env*` contient le jeton d'accès
+# et `data/` votre budget réel. Les laisser passer les embarquerait dans l'image.
+
+.env*
+data/
+
+node_modules
+.next
+out
+build
+coverage
+
+.git
+.gitignore
+
+# Spécifications et documentation : sans effet sur l'exécution.
+specs
+.specify
+.claude
+*.md
+
+# Outillage de test : l'image de production ne l'exécute pas.
+vitest.config.mts
+vitest.setup.ts
+**/*.test.ts
+**/*.test.tsx
+
+.DS_Store
+Thumbs.db
+*.log
+.vscode
+.idea

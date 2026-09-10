@@ -1,0 +1,51 @@
+# Déploiement de Budget App sur un serveur personnel.
+#
+#   docker compose up -d --build
+#
+# Deux règles gouvernent ce fichier :
+#  - le jeton n'y figure pas, il vient de `.env` (non versionné) ;
+#  - le port n'est publié que sur la boucle locale, Caddy étant seul à joindre l'application.
+
+services:
+  budget:
+    build: .
+    container_name: budget-app
+    restart: unless-stopped
+
+    # `127.0.0.1:` est la partie qui compte. Sans ce préfixe, Docker publierait le port sur
+    # **toutes** les interfaces — y compris celle qui donne sur votre réseau local, et
+    # éventuellement sur Internet si le serveur est exposé. Ici, seul l'hôte peut joindre
+    # l'application, donc seul Caddy.
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    environment:
+      # Défini dans `.env`, jamais ici : ce fichier est versionné.
+      BUDGET_ACCESS_TOKEN: ${BUDGET_ACCESS_TOKEN:?le jeton d_acces est obligatoire}
+      BUDGET_DATA_DIR: /data
+
+    # Volume nommé, géré par Docker sur le disque local du serveur. À ne pas remplacer par un
+    # montage vers un partage SMB/NFS : l'écriture atomique du budget repose sur un `rename`
+    # dans le même système de fichiers, garantie qu'un partage réseau n'offre pas.
+    volumes:
+      - budget-data:/data
+
+    # Le budget est peu volumineux et l'application ne fait aucun calcul lourd côté serveur.
+    # Ces bornes évitent qu'un emballement ne gêne le reste du serveur.
+    mem_limit: 512m
+
+    healthcheck:
+      # Une réponse 401 prouve que l'application tourne **et** qu'elle refuse un appel non
+      # autorisé. Un 200 ici signalerait au contraire un problème.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/budget').then(r=>process.exit(r.status===401?0:1)).catch(()=>process.exit(1))"
+      interval: 1m
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  budget-data:

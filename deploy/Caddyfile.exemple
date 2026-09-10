@@ -1,0 +1,71 @@
+# Exposition de Budget App sur le tailnet, et nulle part ailleurs.
+#
+# À recopier dans votre Caddyfile en remplaçant les deux valeurs marquées. Ce fichier est un
+# exemple versionné : il ne contient aucun secret.
+#
+# ============================================================================================
+# AVANT TOUT : deux verrous, pas un
+# ============================================================================================
+#
+#  1. `docker-compose.yml` publie le port sur `127.0.0.1` uniquement. L'application est donc
+#     déjà injoignable depuis le réseau, même sans Caddy.
+#  2. `bind` ci-dessous limite Caddy à l'interface Tailscale.
+#
+# Chacun suffirait ; ensemble, une erreur sur l'un ne suffit pas à exposer le budget.
+#
+# ============================================================================================
+
+# Le nom MagicDNS de votre serveur. `tailscale status` vous le donne.
+budget.VOTRE-TAILNET.ts.net {
+
+	# LA LIGNE QUI COMPTE. Sans elle, Caddy écoute sur toutes les interfaces, et le budget
+	# devient joignable depuis votre réseau local — voire depuis Internet si le serveur y
+	# est exposé. Remplacez par l'adresse 100.x.y.z du serveur (`tailscale ip -4`).
+	bind 100.X.Y.Z
+
+	# Certificat émis par Tailscale pour ce nom :
+	#     sudo tailscale cert budget.VOTRE-TAILNET.ts.net
+	#
+	# À renouveler : ces certificats sont de courte durée. Si vous préférez ne pas gérer ce
+	# renouvellement, voyez `tailscale serve` en bas de ce fichier — il s'en charge seul.
+	tls /var/lib/tailscale/certs/budget.VOTRE-TAILNET.ts.net.crt \
+	    /var/lib/tailscale/certs/budget.VOTRE-TAILNET.ts.net.key
+
+	reverse_proxy 127.0.0.1:3000 {
+		# Caddy pose `X-Forwarded-Proto` de lui-même, et l'application s'en sert pour
+		# décider l'attribut `Secure` du cookie d'accès. Rien à configurer ici : c'est
+		# précisément la raison pour laquelle ce réglage ne dépend plus de `NODE_ENV`.
+		#
+		# Ne posez PAS `X-Forwarded-Proto` à la main : vous risqueriez de le figer à une
+		# valeur fausse le jour où vous changerez de protocole.
+	}
+
+	# Le budget change à chaque saisie ; un cache servirait une révision périmée et ferait
+	# croire à un conflit qui n'existe pas.
+	header Cache-Control "no-store"
+
+	log {
+		output file /var/log/caddy/budget.log
+		# Les URL de cette application ne portent aucun montant, mais les journaux d'un
+		# outil de finances personnelles méritent la même discrétion que ses données.
+		format json
+	}
+}
+
+# ============================================================================================
+# ALTERNATIVE PLUS SIMPLE : se passer de Caddy
+# ============================================================================================
+#
+# Tailscale sait faire ce proxy lui-même, avec un vrai certificat renouvelé automatiquement,
+# et par construction joignable du seul tailnet :
+#
+#     sudo tailscale serve --bg --https=443 http://127.0.0.1:3000
+#
+# Une commande, aucun certificat à renouveler, aucun `bind` à ne pas oublier. Si Caddy ne vous
+# sert pas déjà à autre chose sur cette machine, c'est le choix que je recommanderais.
+#
+# Vérifiez ensuite que rien n'est public :
+#
+#     tailscale serve status        # doit indiquer le tailnet, PAS "Funnel"
+#
+# N'activez JAMAIS `tailscale funnel` sur ce service : il le publierait sur Internet.

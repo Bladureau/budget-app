@@ -114,11 +114,50 @@ n'identifie personne.
 
 ## Héberger sur un NAS ou un petit serveur
 
+### Avec Docker
+
+Aucune installation de Node n'est nécessaire sur le serveur.
+
+```bash
+# Sur le serveur, à la racine du projet
+echo "BUDGET_ACCESS_TOKEN=<votre jeton>" > .env
+docker compose up -d --build
+```
+
+L'application écoute sur `127.0.0.1:3000` — **seulement** sur la boucle locale, jamais sur le
+réseau. C'est votre proxy inverse qui décide de l'exposition, et lui seul.
+
+Le budget vit dans le volume Docker `budget-data`, jamais dans l'image. Reconstruire l'image
+n'efface rien.
+
+```bash
+docker compose logs -f budget          # journal
+docker compose exec budget cat /data/budget.json   # état du stockage
+docker run --rm -v budget-app_budget-data:/d -v "$PWD":/s alpine \
+  cp /d/budget.json /s/sauvegarde.json               # copie de sauvegarde
+```
+
+### Exposer sur le tailnet, et nulle part ailleurs
+
+Voir [`deploy/Caddyfile.exemple`](deploy/Caddyfile.exemple), qui documente la configuration
+Caddy — l'essentiel tenant dans la directive `bind` sur l'adresse Tailscale du serveur.
+
+Plus simple encore, si Caddy ne vous sert pas déjà à autre chose :
+
+```bash
+sudo tailscale serve --bg --https=443 http://127.0.0.1:3000
+```
+
+Vrai certificat, renouvelé seul, joignable du seul tailnet. **N'activez jamais `tailscale
+funnel`** sur ce service : il le publierait sur Internet.
+
+### Sans Docker
+
 ```bash
 npm run build && npm start
 ```
 
-À vérifier avant de vous en remettre à l'installation :
+### À vérifier dans les deux cas
 
 | Point | Pourquoi |
 | --- | --- |
