@@ -227,8 +227,10 @@ banking.json
 - **renouvellement** : le compte retenu est celui dont l'empreinte d'IBAN égale `ibanHash`. Sans
   correspondance, la connexion passe en erreur `noAccount` et l'ancienne session n'est pas
   remplacée ;
-- **première liaison** : le compte retenu est **l'unique** compte en `EUR` de la session. Aucun
-  ou plusieurs : erreur `noAccount`, rien n'est enregistré.
+- **première liaison** : le compte retenu est le compte de la session **s'il est seul**, quelle
+  que soit la devise annoncée — LCL annonce `XXX` (« sans devise ») pour un compte courant en
+  euros, constaté à la mise en service. Sinon, l'**unique** compte en `EUR`. Aucun, ou plusieurs
+  sans moyen de les départager : erreur `noAccount`, rien n'est enregistré.
 
 Un suffixe de 4 caractères ne suffit pas à identifier un compte : il ne sert qu'à l'affichage.
 

@@ -127,7 +127,7 @@ Retour de la banque. **Seul point d'entrée non contrôlé par le cookie** (R4).
 | `state` inconnu, expiré ou déjà consommé | aucun | `303` vers `/?banking=invalidState` |
 | `error` présent (refus, `server_error`) | `state` consommé | `303` vers `/?banking=error` |
 | `code` valide, session sans compte | `state` consommé, connexion en erreur `noAccount` | `303` vers `/?banking=noAccount` |
-| `code` valide, première liaison, plusieurs comptes `EUR` ou aucun | `state` consommé, rien enregistré | `303` vers `/?banking=noAccount` |
+| `code` valide, première liaison, aucun compte, ou plusieurs comptes dont aucun ou plusieurs en `EUR` | `state` consommé, rien enregistré | `303` vers `/?banking=noAccount` |
 | `code` valide, renouvellement, aucun compte d'empreinte `ibanHash` | `state` consommé, ancienne session **conservée**, `lastError: noAccount` | `303` vers `/?banking=noAccount` |
 | `code` valide, compte trouvé (data-model §3) | session créée, connexion enregistrée ou **remplacée** (renouvellement) | `303` vers `/?banking=connected` |
 
