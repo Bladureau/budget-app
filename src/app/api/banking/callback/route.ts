@@ -38,8 +38,8 @@ function retour(issue: CallbackOutcome): Response {
 /**
  * Choix du compte (data-model §3) :
  *  - renouvellement : celui dont l'empreinte d'IBAN est déjà enregistrée ;
- *  - première liaison : l'**unique** compte en euros. Aucun ou plusieurs : on refuse de
- *    choisir au hasard.
+ *  - première liaison : le compte s'il est seul, sinon l'**unique** compte en euros. Aucun,
+ *    ou plusieurs sans moyen de les départager : on refuse de choisir au hasard.
  */
 function choisirCompte(
   comptes: readonly ProviderAccount[],
@@ -52,6 +52,11 @@ function choisirCompte(
   if (existante) {
     return avecIban.find((compte) => empreinteIban(compte.iban) === existante.ibanHash) ?? null;
   }
+
+  // Un seul compte : aucune ambiguïté, quelle que soit la devise annoncée. LCL annonce `XXX`
+  // (« sans devise » en ISO 4217) pour un compte courant en euros, constaté à la mise en
+  // service : exiger `EUR` ici rendait toute liaison LCL impossible.
+  if (avecIban.length === 1) return avecIban[0];
 
   const enEuros = avecIban.filter((compte) => compte.currency === "EUR");
   return enEuros.length === 1 ? enEuros[0] : null;

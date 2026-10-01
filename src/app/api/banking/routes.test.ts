@@ -261,6 +261,16 @@ describe("GET /api/banking/callback", () => {
     expect(reponse.headers.get("Location")).toBe("/?banking=noAccount");
   });
 
+  it("retient un compte seul même annoncé sans devise (LCL annonce « XXX »)", async () => {
+    const state = await demarrerLiaison("lcl");
+    fetchSimule.mockResolvedValueOnce(sessionAvec([{ iban: IBAN_LCL, currency: "XXX" }]));
+
+    const reponse = await getCallback(retour({ state, code: "code" }));
+
+    expect(reponse.headers.get("Location")).toBe("/?banking=connected");
+    expect((await readBanking()).state.connections[0].ibanSuffix).toBe("0Y53");
+  });
+
   it("retient l'unique compte en euros parmi plusieurs devises", async () => {
     const state = await demarrerLiaison("revolut");
     fetchSimule.mockResolvedValueOnce(
