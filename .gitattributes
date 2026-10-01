@@ -1,4 +1,0 @@
-# Les scripts shell s'exécutent sur le NAS et dans Termux : des fins de ligne Windows (CRLF)
-# les feraient échouer (« bad interpreter », « $'\r': command not found »), quel que soit le
-# réglage `core.autocrlf` du poste qui les a écrits.
-*.sh text eol=lf
