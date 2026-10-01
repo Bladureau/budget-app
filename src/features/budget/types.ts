@@ -7,6 +7,7 @@
 
 import type { IsoDate, MonthKey } from "@/lib/date";
 import type { Cents } from "@/lib/money";
+import { initialCategoryRules, initialTreatmentRules } from "@/features/banking/initial-rules";
 
 export type { IsoDate, MonthKey } from "@/lib/date";
 export type { Cents } from "@/lib/money";
@@ -106,6 +107,108 @@ export interface Expense {
   label?: string;
   /** Facultative, pour ne pas ralentir la saisie. */
   category: string | null;
+  /**
+   * Banque d'origine d'une dépense importée (fonctionnalité 006). **Absent = saisie
+   * manuelle** : aucune valeur `"manual"` n'est stockée, ce qui laisse les dépenses
+   * antérieures valides sans migration.
+   */
+  source?: BankSource;
+  /** Référence de l'opération bancaire d'origine. Présente si et seulement si `source` l'est. */
+  bankRef?: string;
+}
+
+// --- Synchronisation bancaire (fonctionnalité 006) ------------------------------------------
+//
+// Voir specs/006-bank-sync/data-model.md (§1). Ces types vivent ici, et non dans
+// `features/banking`, parce qu'ils font partie du document persisté : l'analyseur du document
+// doit les connaître sans dépendre du domaine bancaire.
+
+export type BankSource = "lcl" | "revolut";
+
+/**
+ * Un remboursement vient en **déduction** des dépenses. Le sens est porté par la collection,
+ * jamais par le signe : le montant reste strictement positif, comme partout ailleurs (R9).
+ */
+export interface Refund {
+  id: Id;
+  amountCents: Cents;
+  date: IsoDate;
+  label?: string;
+  category: string | null;
+  source: BankSource;
+  bankRef: string;
+}
+
+export type LedgerOutcome = "expense" | "refund" | "ignored" | "inbox";
+
+/** Sort d'une opération bancaire. Une référence inscrite ici n'est jamais retraitée (R2). */
+export interface LedgerEntry {
+  ref: string;
+  outcome: LedgerOutcome;
+  /** Règle qui a tranché. Sert à expliquer le sort, jamais à le recalculer. */
+  reason: string;
+  /** Arrondis Revolut fusionnés dans cette opération, eux aussi réputés traités. */
+  mergedRefs?: string[];
+}
+
+export type BankOperationKind =
+  | "card"
+  | "cardRefund"
+  | "transferOut"
+  | "transferIn"
+  | "directDebit"
+  | "bankFee"
+  | "topUp"
+  | "roundUp"
+  | "other";
+
+export type InboxReason =
+  | "noRule"
+  | "possibleSubscription"
+  | "ambiguousRoundUp"
+  | "foreignCurrency"
+  | "unreadableDate";
+
+/** Instantané d'une opération « À classer », consultable sans le serveur. */
+export interface InboxItem {
+  ref: string;
+  bank: BankSource;
+  date: IsoDate;
+  amountCents: Cents;
+  direction: "debit" | "credit";
+  kind: BankOperationKind;
+  label: string;
+  rawLabel: string;
+  why: InboxReason;
+}
+
+export type TreatmentAction =
+  | { type: "ignore" }
+  | { type: "expense" }
+  | { type: "subscription"; subscriptionId: Id };
+
+export interface TreatmentRule {
+  id: Id;
+  /** `null` : les deux banques. */
+  bank: BankSource | null;
+  contains: string;
+  action: TreatmentAction;
+}
+
+export interface CategoryRule {
+  id: Id;
+  contains: string;
+  category: string;
+}
+
+export interface BankingState {
+  /** Date de début d'import (R12). `null` tant qu'aucune banque n'a été reliée. */
+  importFrom: IsoDate | null;
+  ledger: LedgerEntry[];
+  inbox: InboxItem[];
+  /** Évaluées dans l'ordre : la première qui correspond l'emporte. */
+  rules: TreatmentRule[];
+  categoryRules: CategoryRule[];
 }
 
 // --- Enveloppes budgétaires ------------------------------------------------------------
@@ -132,8 +235,11 @@ export interface Envelope {
 
 // --- Document persisté ---------------------------------------------------------------
 
-/** Version 3 : ajout de la collection `envelopes` (migration purement additive). */
-export const DOCUMENT_VERSION = 3;
+/**
+ * Version 4 : ajout de `refunds` et `banking` (fonctionnalité 006, migration purement
+ * additive). Version 3 : ajout de la collection `envelopes`.
+ */
+export const DOCUMENT_VERSION = 4;
 
 export interface BudgetDocument {
   version: number;
@@ -141,6 +247,23 @@ export interface BudgetDocument {
   subscriptions: Subscription[];
   expenses: Expense[];
   envelopes: Envelope[];
+  refunds: Refund[];
+  banking: BankingState;
+}
+
+/**
+ * État bancaire d'un budget neuf. Les règles initiales y figurent déjà, comme dans un
+ * document migré depuis la version 3 : un budget neuf et un budget ancien doivent partir du
+ * même point.
+ */
+export function emptyBankingState(): BankingState {
+  return {
+    importFrom: null,
+    ledger: [],
+    inbox: [],
+    rules: initialTreatmentRules(),
+    categoryRules: initialCategoryRules(),
+  };
 }
 
 export function emptyDocument(): BudgetDocument {
@@ -150,6 +273,8 @@ export function emptyDocument(): BudgetDocument {
     subscriptions: [],
     expenses: [],
     envelopes: [],
+    refunds: [],
+    banking: emptyBankingState(),
   };
 }
 

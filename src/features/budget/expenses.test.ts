@@ -10,6 +10,7 @@ import {
   spentOnDayCents,
   totalSpentCentsForMonth,
 } from "@/features/budget/expenses";
+import { emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument, Expense, Income } from "@/features/budget/types";
 import { daysInMonth } from "@/lib/date";
 
@@ -33,7 +34,7 @@ function documentAvec(disponibleCents: number, expenses: Expense[]): BudgetDocum
     date: "2026-03-01",
   };
   return {
-    version: 3,
+    ...emptyDocument(),
     incomes: disponibleCents > 0 ? [revenu] : [],
     subscriptions: [],
     expenses,

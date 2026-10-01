@@ -68,6 +68,11 @@ export function ExpenseDetail({
       date,
       ...(libelleNettoye === "" ? {} : { label: libelleNettoye }),
       category: categorie.trim() === "" ? null : categorie.trim(),
+      // Une correction ne change pas l'origine d'une dépense importée (fonctionnalité 006) :
+      // la provenance reste affichée, et la référence bancaire reste unique au document.
+      ...(expense.source !== undefined && expense.bankRef !== undefined
+        ? { source: expense.source, bankRef: expense.bankRef }
+        : {}),
     });
     onDone();
   }

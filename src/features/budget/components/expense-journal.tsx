@@ -9,6 +9,7 @@ import { EMPTY_JOURNAL, NO_SEARCH_RESULT } from "@/features/budget/messages";
 import { compareIso, monthKeyOf } from "@/lib/date";
 import { formatCents, sumCents } from "@/lib/money";
 import { formatIsoDateFr, formatMonthFr } from "@/lib/format";
+import { BANK_LABELS } from "@/features/banking/types";
 
 /** Nombre de dépenses affichées d'emblée, puis ajoutées à chaque extension. */
 const TAILLE_TRANCHE = 50;
@@ -184,9 +185,16 @@ export function ExpenseJournal() {
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div className="min-w-0">
                                 <p className="font-medium">{depense.label ?? "Dépense"}</p>
-                                {depense.category ? (
+                                {depense.category || depense.source ? (
                                   <p className="text-sm text-[var(--muted)]">
-                                    {depense.category}
+                                    {/* Provenance en texte, jamais par une icône seule
+                                        (EF-029, principe VII). Rien pour une saisie manuelle. */}
+                                    {[
+                                      depense.category,
+                                      depense.source ? BANK_LABELS[depense.source] : null,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" · ")}
                                   </p>
                                 ) : null}
                               </div>

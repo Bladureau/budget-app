@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { STORAGE_KEY } from "@/lib/storage";
+import { emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument, Envelope, Expense } from "@/features/budget/types";
 
 /**
@@ -31,7 +32,7 @@ function document(
   expenses: Expense[] = [],
 ): BudgetDocument {
   return {
-    version: 3,
+    ...emptyDocument(),
     incomes: [
       {
         id: "revenu",

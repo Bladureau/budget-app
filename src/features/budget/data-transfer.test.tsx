@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { STORAGE_KEY } from "@/lib/storage";
 import { APPLICATION_MARKER, FORMAT_VERSION } from "@/features/budget/transfer";
+import { emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument } from "@/features/budget/types";
 
 /**
@@ -14,7 +15,7 @@ import type { BudgetDocument } from "@/features/budget/types";
  */
 
 const documentInitial: BudgetDocument = {
-  version: 3,
+  ...emptyDocument(),
   incomes: [
     {
       id: "initial",
@@ -30,7 +31,7 @@ const documentInitial: BudgetDocument = {
 };
 
 const documentImporte: BudgetDocument = {
-  version: 3,
+  ...emptyDocument(),
   incomes: [
     {
       id: "importe-1",
@@ -449,7 +450,7 @@ describe("Section « Vos données » — reprise vers le stockage central (réci
     // Ce sont les champs dont la perte réécrirait des mois passés : ils méritent d'être
     // vérifiés nommément plutôt que par une égalité globale.
     const avecHistorique: BudgetDocument = {
-      version: 3,
+      ...emptyDocument(),
       incomes: [],
       subscriptions: [
         {

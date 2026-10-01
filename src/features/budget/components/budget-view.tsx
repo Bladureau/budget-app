@@ -17,6 +17,8 @@ import { ChargeBreakdown } from "@/features/budget/components/charge-breakdown";
 import { UpcomingDues } from "@/features/budget/components/upcoming-dues";
 import { ForecastView } from "@/features/budget/components/forecast-view";
 import { DataTransfer } from "@/features/budget/components/data-transfer";
+import { BankPanel } from "@/features/banking/components/bank-panel";
+import { Inbox, InboxCount } from "@/features/banking/components/inbox";
 
 /**
  * Premier lancement : le stockage central est vide.
@@ -85,11 +87,14 @@ export function BudgetView() {
         {ready ? (
           <>
             <PremierLancement />
+            <InboxCount />
             <BudgetRing />
             <DailyAllowance />
             <ExpenseForm />
+            <Inbox />
             <ExpenseJournal />
             <EnvelopeList />
+            <BankPanel />
 
             <details className="rounded-lg border border-[var(--border)] p-4">
               <summary className="cursor-pointer font-medium">

@@ -7,13 +7,13 @@ import {
   parseDocument,
   saveDocument,
 } from "@/lib/storage";
-import { DOCUMENT_VERSION, emptyDocument } from "@/features/budget/types";
+import { DOCUMENT_VERSION, emptyBankingState, emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument } from "@/features/budget/types";
 
 // Document témoin, au format courant. Porté en version 3 par la fonctionnalité 001 ; les
 // migrations 1 → 2 et 2 → 3 sont vérifiées séparément par leurs blocs dédiés plus bas.
 const documentValide: BudgetDocument = {
-  version: 3,
+  ...emptyDocument(),
   incomes: [
     {
       id: "revenu-1",
@@ -396,7 +396,7 @@ describe("Migration 1 → 2", () => {
 
     // La version terminale est 3 depuis la fonctionnalité 001 : le document traverse les
     // deux migrations d'affilée.
-    expect(resultat.value.version).toBe(3);
+    expect(resultat.value.version).toBe(DOCUMENT_VERSION);
     expect(resultat.value.incomes).toHaveLength(3);
     expect(resultat.value.subscriptions).toHaveLength(2);
   });
@@ -420,7 +420,7 @@ describe("Migration 1 → 2", () => {
     const resultat = parseDocument({ version: 1, incomes: [], subscriptions: [] });
     expect(resultat.ok).toBe(true);
     if (resultat.ok) {
-      expect(resultat.value.version).toBe(3);
+      expect(resultat.value.version).toBe(DOCUMENT_VERSION);
       expect(resultat.value.expenses).toEqual([]);
       expect(resultat.value.envelopes).toEqual([]);
     }
@@ -431,7 +431,7 @@ describe("Migration 1 → 2", () => {
     const resultat = parseDocument(v2);
     expect(resultat.ok).toBe(true);
     if (resultat.ok) {
-      expect(resultat.value.version).toBe(3);
+      expect(resultat.value.version).toBe(DOCUMENT_VERSION);
       expect(resultat.value.incomes).toEqual(v2.incomes);
       expect(resultat.value.subscriptions).toEqual(v2.subscriptions);
     }
@@ -444,7 +444,7 @@ describe("Migration 1 → 2", () => {
     expect(charge.quarantined).toBe(false);
     expect(charge.document.incomes).toEqual(documentV1.incomes);
     expect(charge.document.subscriptions).toEqual(documentV1.subscriptions);
-    expect(charge.document.version).toBe(3);
+    expect(charge.document.version).toBe(DOCUMENT_VERSION);
   });
 });
 
@@ -570,7 +570,7 @@ describe("Migration 2 → 3", () => {
     expect(resultat.ok).toBe(true);
     if (!resultat.ok) return;
 
-    expect(resultat.value.version).toBe(3);
+    expect(resultat.value.version).toBe(DOCUMENT_VERSION);
     expect(resultat.value.expenses).toHaveLength(3);
     expect(resultat.value.expenses).toEqual(documentV2.expenses);
   });
@@ -600,23 +600,32 @@ describe("Migration 2 → 3", () => {
     expect(resultat.ok).toBe(true);
     if (!resultat.ok) return;
 
-    expect(resultat.value.version).toBe(3);
+    expect(resultat.value.version).toBe(DOCUMENT_VERSION);
     expect(resultat.value.expenses).toEqual([]);
     expect(resultat.value.envelopes).toEqual([]);
     expect(resultat.value.incomes).toEqual(v1.incomes);
     expect(resultat.value.subscriptions).toEqual(v1.subscriptions);
   });
 
-  it("laisse inchangé un document déjà en version 3", () => {
+  it("migre un document en version 3 sans toucher à son contenu", () => {
+    // Depuis la fonctionnalité 006, la version 3 n'est plus la version courante : elle ne
+    // reçoit que les deux ajouts de la migration 3 → 4, tout le reste est repris à l'identique.
     const v3 = { ...structuredClone(documentV2), version: 3, envelopes: [] };
     const resultat = parseDocument(v3);
     expect(resultat.ok).toBe(true);
-    if (resultat.ok) expect(resultat.value).toEqual(v3);
+    if (resultat.ok) {
+      expect(resultat.value).toEqual({
+        ...v3,
+        version: DOCUMENT_VERSION,
+        refunds: [],
+        banking: emptyBankingState(),
+      });
+    }
   });
 
   it("refuse une version postérieure sans y toucher", () => {
     const resultat = parseDocument({
-      version: 4,
+      version: DOCUMENT_VERSION + 1,
       incomes: [],
       subscriptions: [],
       expenses: [],
@@ -631,7 +640,7 @@ describe("Migration 2 → 3", () => {
     const charge = loadDocument();
 
     expect(charge.quarantined).toBe(false);
-    expect(charge.document.version).toBe(3);
+    expect(charge.document.version).toBe(DOCUMENT_VERSION);
     expect(charge.document.expenses).toEqual(documentV2.expenses);
   });
 });

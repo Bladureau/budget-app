@@ -104,11 +104,13 @@ describe("Pollution de prototype par le fichier d'import", () => {
     expect(resultat.ok).toBe(true);
     if (!resultat.ok) return;
 
-    // Le document reconstruit ne porte QUE les cinq champs du modele.
+    // Le document reconstruit ne porte QUE les sept champs du modele.
     expect(Object.keys(resultat.document).sort()).toEqual([
+      "banking",
       "envelopes",
       "expenses",
       "incomes",
+      "refunds",
       "subscriptions",
       "version",
     ]);

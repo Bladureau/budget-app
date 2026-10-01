@@ -47,6 +47,11 @@ récurrentes payées ?**
   fonctionner** : vous consultez et vous saisissez, et ce qui n'est pas encore parti est signalé
   puis synchronisé de lui-même au retour du réseau. Si deux appareils ont modifié le budget sans
   s'être vus, rien n'est écrasé en silence — c'est vous qui tranchez.
+- **Synchronisation bancaire (LCL, Revolut)**, facultative : vos paiements carte entrent seuls au
+  journal, datés du jour du paiement, en lecture seule via Enable Banking. Rien n'est compté deux
+  fois — recharges Revolut, abonnements déjà saisis, loyer, revenus sont écartés — et ce qu'aucune
+  règle ne tranche attend dans une liste **« À classer »**, sans effet sur le budget tant que vous
+  n'avez pas décidé.
 
 ## Démarrage
 
@@ -93,6 +98,46 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 > Le préfixe `NEXT_PUBLIC_` est **interdit** pour ces deux variables : tout ce qui le porte est
 > exposé au navigateur. Le répertoire `data/` est lui aussi ignoré par Git — il contient votre
 > budget réel.
+
+## Configuration de la synchronisation bancaire
+
+La synchronisation bancaire (fonctionnalité 006) passe par [Enable Banking](https://enablebanking.com),
+un fournisseur d'accès DSP2 **que vous choisissez** : vous y créez votre propre application, en
+production et en mode restreint, et vous y liez vos comptes. L'accès est en **lecture seule**, et le
+flux va de la banque vers l'application : aucune donnée de votre budget n'est envoyée au fournisseur.
+
+| Variable | Rôle | Défaut |
+| --- | --- | --- |
+| `ENABLE_BANKING_APP_ID` | Identifiant de votre application Enable Banking. Ce n'est pas un secret. | *(aucun)* |
+| `BANKING_REDIRECT_URL` | URL de retour déclarée dans le portail, **à l'identique** : `https://<nas>.<tailnet>.ts.net:<port>/api/banking/callback`. HTTPS obligatoire. | *(aucun)* |
+| `ENABLE_BANKING_KEY_PATH` | Chemin **dans le conteneur** de la clé privée. Fixé par `docker-compose.yml`. | *(aucun)* |
+| `ENABLE_BANKING_KEY_FILE` | Chemin **sur l'hôte** de la clé, monté en lecture seule (Docker uniquement). | `./data/enable-banking.pem` |
+
+**Les trois sont facultatives.** S'il en manque une, ou si la clé est illisible, la
+synchronisation bancaire est désactivée — le panneau « Mes banques » l'indique — et le reste du
+budget fonctionne normalement. Aucune valeur de repli n'est inventée.
+
+La clé privée se range dans `data/enable-banking.pem`, à la racine du projet. Ce répertoire est
+exclu de Git et du contexte de construction Docker : la clé n'entre ni dans le dépôt, ni dans
+l'image. Elle doit être lisible par l'utilisateur du conteneur (uid `1001`), et par lui seul :
+
+```bash
+sudo chown 1001 data/enable-banking.pem && sudo chmod 400 data/enable-banking.pem
+```
+
+Sans synchronisation bancaire, retirez le montage de la clé de `docker-compose.yml` : Docker
+refuse volontairement de démarrer si le fichier monté n'existe pas, plutôt que de créer un
+répertoire à sa place.
+
+Dans l'application, panneau **« Mes banques »** :
+
+1. Enregistrez la **date de début d'import**. À partir de ce jour, ne saisissez plus vos paiements
+   carte à la main : ils seraient comptés deux fois.
+2. **Reliez** chaque banque et validez chez elle. L'autorisation dure 180 jours au plus ; il
+   faudra alors la renouveler.
+3. Les opérations sont récupérées à chaque ouverture de l'application, au plus une fois toutes
+   les 6 heures par banque, ou à la demande (« Synchroniser les banques »). Le serveur peut être
+   éteint entre-temps : rien n'est perdu, tout est rattrapé à l'ouverture suivante.
 
 ## Protéger l'accès
 
