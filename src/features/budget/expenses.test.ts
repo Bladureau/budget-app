@@ -11,7 +11,7 @@ import {
   totalSpentCentsForMonth,
 } from "@/features/budget/expenses";
 import { emptyDocument } from "@/features/budget/types";
-import type { BudgetDocument, Expense, Income } from "@/features/budget/types";
+import type { BudgetDocument, Expense, Income, Refund } from "@/features/budget/types";
 import { daysInMonth } from "@/lib/date";
 
 function depense(
@@ -423,5 +423,128 @@ describe("normalizeForSearch et searchExpenses", () => {
   it("tolère une dépense sans libellé", () => {
     const sansLibelle: Expense = { id: "x", amountCents: 100, date: "2026-03-01", category: null };
     expect(() => searchExpenses([sansLibelle], "quelque chose")).not.toThrow();
+  });
+});
+
+// --- Fonctionnalité 006, récit 4 : remboursements (EF-031, EF-032) ---------------------------
+
+describe("remboursements", () => {
+  function remboursement(id: string, amountCents: number, date: string): Refund {
+    return {
+      id,
+      amountCents,
+      date,
+      category: null,
+      label: `Remboursement ${id}`,
+      source: "lcl",
+      bankRef: `lcl:${id}`,
+    };
+  }
+
+  function documentAvecRemboursements(
+    disponibleCents: number,
+    expenses: Expense[],
+    refunds: Refund[],
+  ): BudgetDocument {
+    return { ...documentAvec(disponibleCents, expenses), refunds };
+  }
+
+  it("déduit un remboursement du total dépensé du mois", () => {
+    const doc = documentAvecRemboursements(
+      100000,
+      [depense("a", 5846, "2026-03-05")],
+      [remboursement("r", 499, "2026-03-07")],
+    );
+    const bilan = computeMonthlySpending(doc, "2026-03", "2026-03-10");
+
+    expect(bilan.spentCents).toBe(5846 - 499);
+    expect(bilan.refundedCents).toBe(499);
+    expect(bilan.remainingCents).toBe(100000 - 5846 + 499);
+    expect(bilan.refundSurplusCents).toBe(0);
+  });
+
+  it("ne rend jamais un dépensé négatif : l'excédent est exposé à part", () => {
+    const doc = documentAvecRemboursements(100000, [], [remboursement("r", 499, "2026-03-07")]);
+    const bilan = computeMonthlySpending(doc, "2026-03", "2026-03-10");
+
+    expect(bilan.spentCents).toBe(0);
+    expect(bilan.refundSurplusCents).toBe(499);
+    // L'excédent n'augmente pas le reste : il est signalé, pas dépensé à l'avance.
+    expect(bilan.remainingCents).toBe(100000);
+    expect(bilan.status).toBe("untouched");
+  });
+
+  it("ignore un remboursement d'un autre mois", () => {
+    const doc = documentAvecRemboursements(
+      100000,
+      [depense("a", 1000, "2026-03-05")],
+      [remboursement("r", 499, "2026-02-27"), remboursement("s", 300, "2026-04-01")],
+    );
+    expect(computeMonthlySpending(doc, "2026-03", "2026-03-10").spentCents).toBe(1000);
+  });
+
+  it("garde les centimes exacts sur le plus grand montant réaliste", () => {
+    const doc = documentAvecRemboursements(
+      9_000_000_000,
+      [depense("a", 9_000_000_000, "2026-03-05")],
+      [remboursement("r", 1, "2026-03-06")],
+    );
+    expect(computeMonthlySpending(doc, "2026-03", "2026-03-10").spentCents).toBe(8_999_999_999);
+  });
+
+  it("réduit le dépensé du jour du remboursement, sans le rendre négatif", () => {
+    const doc = documentAvecRemboursements(
+      31000,
+      [depense("a", 2000, "2026-03-10")],
+      [remboursement("r", 500, "2026-03-10")],
+    );
+    expect(computeDailyAllowance(doc, "2026-03-10").spentTodayCents).toBe(1500);
+
+    const seul = documentAvecRemboursements(31000, [], [remboursement("r", 500, "2026-03-10")]);
+    expect(computeDailyAllowance(seul, "2026-03-10").spentTodayCents).toBe(0);
+  });
+
+  it("augmente l'allocation des jours suivants d'un remboursement passé", () => {
+    const sans = documentAvecRemboursements(31000, [depense("a", 3100, "2026-03-01")], []);
+    const avec = documentAvecRemboursements(
+      31000,
+      [depense("a", 3100, "2026-03-01")],
+      [remboursement("r", 3100, "2026-03-02")],
+    );
+    // 31 000 − 3 100 répartis sur 29 jours, contre 31 000 entiers.
+    expect(computeDailyAllowance(sans, "2026-03-03").allowanceCents).toBe(Math.floor(27900 / 29));
+    expect(computeDailyAllowance(avec, "2026-03-03").allowanceCents).toBe(Math.floor(31000 / 29));
+  });
+
+  it("tient compte du remboursement dans le report de la veille", () => {
+    const doc = documentAvecRemboursements(
+      31000,
+      [depense("a", 1500, "2026-03-01")],
+      [remboursement("r", 500, "2026-03-01")],
+    );
+    // Allocation du 1er : 1 000 ; dépensé net : 1 000 ; report nul.
+    expect(computeDailyAllowance(doc, "2026-03-02").carryOverCents).toBe(0);
+  });
+
+  it("n'altère aucun calcul en l'absence de remboursement", () => {
+    const doc = documentAvec(100000, [depense("a", 1000, "2026-03-05")]);
+    expect(computeMonthlySpending(doc, "2026-03", "2026-03-10")).toMatchObject({
+      spentCents: 1000,
+      refundedCents: 0,
+      refundSurplusCents: 0,
+    });
+  });
+
+  it("regroupe les remboursements avec les dépenses dans le journal", () => {
+    const jours = groupByDay(
+      [depense("a", 1000, "2026-03-05")],
+      [remboursement("r", 499, "2026-03-05"), remboursement("s", 300, "2026-03-04")],
+    );
+
+    expect(jours.map((j) => j.date)).toEqual(["2026-03-05", "2026-03-04"]);
+    expect(jours[0].refunds.map((r) => r.id)).toEqual(["r"]);
+    expect(jours[0].subtotalCents).toBe(1000 - 499);
+    expect(jours[1].expenses).toEqual([]);
+    expect(jours[1].subtotalCents).toBe(-300);
   });
 });

@@ -206,6 +206,40 @@ describe("récit 2 — ne jamais compter deux fois", () => {
   });
 });
 
+describe("récit 4 — les remboursements réduisent les dépenses", () => {
+  it("affiche le remboursement au journal et le déduit du dépensé du mois", async () => {
+    // Le mois affiché est le mois courant : les opérations sont datées d'aujourd'hui.
+    const aujourdHui = new Date();
+    const jour = `${aujourdHui.getFullYear()}-${String(aujourdHui.getMonth() + 1).padStart(2, "0")}-${String(aujourdHui.getDate()).padStart(2, "0")}`;
+    serveur.document = {
+      ...serveur.document,
+      incomes: [{ id: "salaire", label: "Salaire", amountCents: 150000, kind: "oneOff", date: `${jour.slice(0, 8)}01` }],
+      banking: { ...serveur.document.banking, importFrom: `${jour.slice(0, 8)}01` },
+    };
+    serveur.operations = [
+      operation("uber", { amountCents: 5846, label: "UBER *EATS", bookingDate: jour, paymentDate: jour }),
+      operation("twitch", {
+        amountCents: 499,
+        direction: "credit",
+        kind: "cardRefund",
+        label: "Twitch Interacti",
+        bookingDate: jour,
+        paymentDate: null,
+      }),
+    ];
+    await ouvrirAppareil();
+
+    await waitFor(() => expect(journal().getByText("Remboursement · Twitch Interacti")).toBeInTheDocument());
+    expect(journal().getByText("− 4,99 €")).toBeInTheDocument();
+    // Sous-total du jour : 58,46 − 4,99.
+    expect(journal().getAllByText("53,47 €").length).toBeGreaterThan(0);
+
+    const anneau = within(screen.getByRole("region", { name: /Reste à dépenser/ }));
+    expect(anneau.getByText("Remboursements déduits : 4,99 €.")).toBeInTheDocument();
+    expect(anneau.getByText("53,47 €")).toBeInTheDocument();
+  });
+});
+
 describe("récit 3 — « À classer »", () => {
   it("signale l'élément à l'accueil sans le compter, puis l'ignore en un geste", async () => {
     const utilisateur = userEvent.setup();

@@ -45,9 +45,11 @@ export function ExpenseJournal() {
 
   /** Mois pour lesquels au moins une dépense existe, du plus récent au plus ancien. */
   const moisDisponibles = useMemo(() => {
-    const mois = new Set(document.expenses.map((d) => monthKeyOf(d.date)));
+    const mois = new Set(
+      [...document.expenses, ...document.refunds].map((d) => monthKeyOf(d.date)),
+    );
     return [...mois].sort((a, b) => compareIso(b, a));
-  }, [document.expenses]);
+  }, [document.expenses, document.refunds]);
 
   const filtrees = useMemo(() => {
     let liste = [...document.expenses];
@@ -56,15 +58,33 @@ export function ExpenseJournal() {
     return liste.sort((a, b) => compareIso(b.date, a.date));
   }, [document.expenses, moisFiltre, recherche]);
 
+  // Remboursements (fonctionnalité 006) : mêmes filtres que les dépenses. Un remboursement a
+  // un libellé et une catégorie comme une dépense, la recherche s'y applique donc telle quelle.
+  const remboursements = useMemo(() => {
+    let liste = [...document.refunds];
+    if (moisFiltre !== "") liste = liste.filter((r) => monthKeyOf(r.date) === moisFiltre);
+    return searchExpenses(liste, recherche);
+  }, [document.refunds, moisFiltre, recherche]);
+
   const totalFiltre = useMemo(
-    () => sumCents(filtrees.map((d) => d.amountCents)),
-    [filtrees],
+    () =>
+      sumCents(filtrees.map((d) => d.amountCents)) -
+      sumCents(remboursements.map((r) => r.amountCents)),
+    [filtrees, remboursements],
   );
 
-  const journees = useMemo(
-    () => groupByDay(filtrees.slice(0, tranche)),
-    [filtrees, tranche],
-  );
+  // Les remboursements rejoignent les journées affichées : ceux d'une journée encore hors de
+  // la tranche apparaîtront avec elle.
+  const journees = useMemo(() => {
+    const affichees = filtrees.slice(0, tranche);
+    const tronquee = filtrees.length > tranche;
+    const plusAncienne = affichees.at(-1)?.date;
+    const visibles =
+      tronquee && plusAncienne !== undefined
+        ? remboursements.filter((r) => compareIso(r.date, plusAncienne) >= 0)
+        : remboursements;
+    return groupByDay(affichees, visibles);
+  }, [filtrees, remboursements, tranche]);
 
   const resteAAfficher = filtrees.length > tranche;
 
@@ -83,7 +103,7 @@ export function ExpenseJournal() {
     return () => observateur.disconnect();
   }, [resteAAfficher]);
 
-  const journalVide = document.expenses.length === 0;
+  const journalVide = document.expenses.length === 0 && document.refunds.length === 0;
 
   return (
     <section aria-labelledby="titre-journal" className="space-y-4">
@@ -140,7 +160,7 @@ export function ExpenseJournal() {
             </div>
           </div>
 
-          {filtrees.length === 0 ? (
+          {filtrees.length === 0 && remboursements.length === 0 ? (
             <div className="space-y-2 text-sm">
               <p className="text-[var(--muted)]">{NO_SEARCH_RESULT}</p>
               <button
@@ -220,6 +240,28 @@ export function ExpenseJournal() {
                               </div>
                             </div>
                           )}
+                        </li>
+                      ))}
+                      {/* Remboursements (fonctionnalité 006) : distincts des dépenses, et
+                          annoncés comme une déduction en toutes lettres, pas par la seule
+                          couleur ni par le seul signe (principe VII). */}
+                      {journee.refunds.map((remboursement) => (
+                        <li key={remboursement.id} className="py-2">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-medium">
+                                Remboursement · {remboursement.label ?? "sans libellé"}
+                              </p>
+                              <p className="text-sm text-[var(--muted)]">
+                                {[remboursement.category, BANK_LABELS[remboursement.source]]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </p>
+                            </div>
+                            <span className="font-semibold tabular-nums">
+                              − {formatCents(remboursement.amountCents)}
+                            </span>
+                          </div>
                         </li>
                       ))}
                     </ul>

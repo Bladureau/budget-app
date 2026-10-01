@@ -338,7 +338,15 @@ export interface MonthlySpending {
   month: MonthKey;
   /** Repris de `computeMonthlyBudget().remainingCents` : revenus moins charges engagées. */
   availableCents: Cents;
+  /**
+   * Dépensé **net** : dépenses moins remboursements du mois, jamais négatif (fonctionnalité
+   * 006, EF-032).
+   */
   spentCents: Cents;
+  /** Remboursements du mois, déjà déduits de `spentCents`. */
+  refundedCents: Cents;
+  /** Part des remboursements excédant les dépenses du mois ; 0 sinon. Exposée, jamais dépensée. */
+  refundSurplusCents: Cents;
   remainingCents: Cents;
   /** Plafonné à 1 pour que l'anneau ne déborde pas ; 0 si le disponible est nul ou négatif. */
   consumedRatio: number;
@@ -365,6 +373,9 @@ export interface DailyAllowance {
 export interface JournalDay {
   date: IsoDate;
   expenses: Expense[];
+  /** Remboursements du jour (fonctionnalité 006), présentés comme des déductions. */
+  refunds: Refund[];
+  /** Dépenses moins remboursements du jour : négatif si un remboursement l'emporte. */
   subtotalCents: Cents;
 }
 

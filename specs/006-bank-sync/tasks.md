@@ -330,24 +330,24 @@ l'enveloppe.
 
 **Test indépendant** : un remboursement de 4,99 € réduit le total du mois de 4,99 €.
 
-- [ ] T048 [P] [US4] Étendre `src/features/budget/expenses.test.ts` : dépensé net au jour, avant
+- [X] T048 [P] [US4] Étendre `src/features/budget/expenses.test.ts` : dépensé net au jour, avant
       un jour et au mois ; remboursement seul dans un mois (net borné à 0, excédent exposé) ;
       remboursement d'un autre mois sans effet ; montants nuls et plus grand montant réaliste ;
       allocation quotidienne et report de la veille avec remboursement.
-- [ ] T049 [P] [US4] Étendre `src/features/budget/envelopes.test.ts` : consommation nette d'une
+- [X] T049 [P] [US4] Étendre `src/features/budget/envelopes.test.ts` : consommation nette d'une
       enveloppe ; remboursement sans catégorie compté dans « hors enveloppe » ; excédent sur une
       enveloppe → consommation 0, jamais négative.
-- [ ] T050 [US4] Modifier `src/features/budget/expenses.ts` : agrégats nets (dépenses moins
+- [X] T050 [US4] Modifier `src/features/budget/expenses.ts` : agrégats nets (dépenses moins
       remboursements) dans `totalSpentCentsForMonth`, `spentOnDayCents`, `spentBeforeDayCents`,
       `computeMonthlySpending` et `computeDailyAllowance`, bornés à 0 là où le contrat l'exige,
       excédent exposé (R9, EF-031, EF-032). Mettre à jour les appelants dans
       `src/features/budget/` pour transmettre les remboursements.
-- [ ] T051 [US4] Modifier `src/features/budget/envelopes.ts` : consommation nette par catégorie
+- [X] T051 [US4] Modifier `src/features/budget/envelopes.ts` : consommation nette par catégorie
       dans `computeMonthlyEnvelopes`, y compris le groupe « hors enveloppe ».
 - [X] T052 [US4] Ajouter l'étape 3 (`cardRefund` → remboursement daté de `bookingDate`) à
       `decide()` dans `src/features/banking/rules.ts`, avec son test dans
       `src/features/banking/rules.test.ts`.
-- [ ] T053 [US4] Afficher les remboursements dans
+- [X] T053 [US4] Afficher les remboursements dans
       `src/features/budget/components/expense-journal.tsx`, distinctement des dépenses, avec un
       montant présenté comme une déduction en texte (« Remboursement − 4,99 € ») et non par la
       seule couleur.
