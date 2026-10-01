@@ -543,6 +543,86 @@ describe("GET /api/banking/operations", () => {
     expect(refs(corps)).toEqual(["lcl:marge"]);
   });
 
+  const ancienne = {
+    ref: "lcl:ancienne",
+    bank: "lcl" as const,
+    bookingDate: "2026-05-30",
+    paymentDate: "2026-05-29",
+    amountCents: 100,
+    currency: "EUR",
+    direction: "debit" as const,
+    kind: "card" as const,
+    label: "X",
+    rawLabel: "X",
+  };
+
+  it("consigne un accès retiré sans perdre le cache", async () => {
+    await relier("lcl", { operations: [{ ...ancienne, bookingDate: "2026-10-02" }] });
+    fetchSimule.mockResolvedValueOnce(repondre(403, { code: "SESSION_REVOKED" }));
+
+    const corps = await (await getOperations(requeteOperations({ since: "2026-10-01" }))).json();
+
+    expect(banque(corps, "lcl").lastError).toBe("revoked");
+    expect(refs(corps)).toEqual(["lcl:ancienne"]);
+  });
+
+  it("conserve le cache après une reconnexion, et ne rend aucune opération en double", async () => {
+    // Liaison initiale, puis récupération d'une opération.
+    let state = await demarrerLiaison("lcl");
+    fetchSimule.mockResolvedValueOnce(sessionAvec([{ iban: IBAN_LCL, currency: "XXX" }]));
+    await getCallback(retour({ state, code: "code" }));
+    fetchSimule.mockResolvedValueOnce(
+      transactions([lclCarte("a", "2026-10-02", "12.00", "BOULANGERIE", "01/10/26")]),
+    );
+    await getOperations(requeteOperations({ since: "2026-10-01" }));
+
+    // Renouvellement : même compte, nouvelle session.
+    state = await demarrerLiaison("lcl");
+    fetchSimule.mockResolvedValueOnce(sessionAvec([{ iban: IBAN_LCL, currency: "XXX" }]));
+    await getCallback(retour({ state, code: "code-2" }));
+
+    // La banque rend de nouveau la même opération, plus une nouvelle.
+    fetchSimule.mockResolvedValueOnce(
+      transactions([
+        lclCarte("a", "2026-10-02", "12.00", "BOULANGERIE", "01/10/26"),
+        lclCarte("b", "2026-10-04", "3.00", "CAFE", "03/10/26"),
+      ]),
+    );
+    const corps = await (await getOperations(requeteOperations({ since: "2026-10-01" }))).json();
+
+    expect(refs(corps)).toEqual(["lcl:a", "lcl:b"]);
+    expect(banque(corps, "lcl").lastError).toBeNull();
+  });
+
+  it("signale un trou d'historique après plus de 90 jours d'extinction", async () => {
+    await relier("lcl", { lastFetchAt: "2026-06-01T00:00:00.000Z", operations: [ancienne] });
+    // La banque ne rend plus rien d'antérieur à juillet.
+    fetchSimule.mockResolvedValueOnce(
+      transactions([lclCarte("recente", "2026-07-10", "1.00", "X", "09/07/26")]),
+    );
+
+    const corps = await (await getOperations(requeteOperations({ since: "2026-05-01" }))).json();
+    expect(banque(corps, "lcl").historyGap).toBe(true);
+  });
+
+  it("ne signale pas de trou quand la banque rend tout depuis la date demandée", async () => {
+    await relier("lcl", { lastFetchAt: "2026-06-01T00:00:00.000Z", operations: [ancienne] });
+    fetchSimule.mockResolvedValueOnce(
+      transactions([lclCarte("suite", "2026-05-25", "1.00", "X", "24/05/26")]),
+    );
+
+    const corps = await (await getOperations(requeteOperations({ since: "2026-05-01" }))).json();
+    expect(banque(corps, "lcl").historyGap).toBe(false);
+  });
+
+  it("ne signale pas de trou après une courte extinction", async () => {
+    await relier("lcl", { lastFetchAt: "2026-10-01T00:00:00.000Z" });
+    fetchSimule.mockResolvedValueOnce(transactions([]));
+
+    const corps = await (await getOperations(requeteOperations({ since: "2026-10-01" }))).json();
+    expect(banque(corps, "lcl").historyGap).toBe(false);
+  });
+
   it("ne renvoie aucune donnée sensible", async () => {
     await relier("lcl");
     fetchSimule.mockResolvedValueOnce(transactions([]));

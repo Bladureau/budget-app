@@ -17,7 +17,7 @@ import { ChargeBreakdown } from "@/features/budget/components/charge-breakdown";
 import { UpcomingDues } from "@/features/budget/components/upcoming-dues";
 import { ForecastView } from "@/features/budget/components/forecast-view";
 import { DataTransfer } from "@/features/budget/components/data-transfer";
-import { BankPanel } from "@/features/banking/components/bank-panel";
+import { BankAlerts, BankPanel } from "@/features/banking/components/bank-panel";
 import { Inbox, InboxCount } from "@/features/banking/components/inbox";
 
 /**
@@ -87,6 +87,7 @@ export function BudgetView() {
         {ready ? (
           <>
             <PremierLancement />
+            <BankAlerts />
             <InboxCount />
             <BudgetRing />
             <DailyAllowance />

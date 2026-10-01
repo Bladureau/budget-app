@@ -365,22 +365,22 @@ geste, sans réimport.
 **Test indépendant** : autorisation simulée à J + 10 → avertissement ; expirée → message clair
 et « Reconnecter » ; reconnexion → aucun doublon.
 
-- [ ] T054 [P] [US5] Créer `src/features/banking/bank-status.ts` : fonction pure qui, à partir de
+- [X] T054 [P] [US5] Créer `src/features/banking/bank-status.ts` : fonction pure qui, à partir de
       `BankStatus` et de la date du jour, rend l'état affichable de chaque banque (à jour,
       expire bientôt à moins de 14 jours, expirée, révoquée, aucun compte, limitée,
       indisponible) et le texte de `contracts/api-banking.md` §5.
-- [ ] T055 [P] [US5] Créer `src/features/banking/bank-status.test.ts` : seuil de 14 jours exact,
+- [X] T055 [P] [US5] Créer `src/features/banking/bank-status.test.ts` : seuil de 14 jours exact,
       chaque `lastError`, date de dernière récupération réussie toujours présente.
-- [ ] T056 [US5] Étendre `src/features/banking/components/bank-panel.tsx` : avertissement
+- [X] T056 [US5] Étendre `src/features/banking/components/bank-panel.tsx` : avertissement
       d'expiration, messages d'échec, bouton « Reconnecter » (même parcours que la liaison),
       messages de retour `?banking=connected|error|noAccount|invalidState`.
-- [ ] T057 [US5] Signaler un **trou d'historique** probable dans
+- [X] T057 [US5] Signaler un **trou d'historique** probable dans
       `src/app/api/banking/operations/route.ts` et `bank-panel.tsx` : si la plus ancienne
       opération reçue est postérieure à la date demandée de plus de 7 jours alors que la
       dernière récupération réussie date de plus de 90 jours (R3, NAS éteint longtemps).
-      *(Avancement : la détection côté serveur et le champ `historyGap` de l'état existent
-      depuis le MVP ; restent l'affichage dans `bank-panel.tsx` et les tests de T058.)*
-- [ ] T058 [US5] Étendre `src/app/api/banking/routes.test.ts` : reconnexion d'une banque déjà
+      *(Signalé uniquement dans la réponse de la récupération qui le constate : le message
+      apparaît à cette ouverture-là, sans être conservé dans `banking.json`.)*
+- [X] T058 [US5] Étendre `src/app/api/banking/routes.test.ts` : reconnexion d'une banque déjà
       reliée → `sessionId` et `validUntil` remplacés, cache conservé, puis traitement côté
       navigateur sans aucun doublon (EF-012) ; erreurs `expired` et `revoked` consignées dans
       `lastError` sans perdre le cache ; **trou d'historique** de T057 signalé quand la dernière
