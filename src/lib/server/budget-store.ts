@@ -22,10 +22,15 @@
  * et par mois — et le réemployer ici pour un conteneur technique prêterait à confusion.
  */
 
-import { constants } from "node:fs";
-import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import {
+  ecrireJsonAtomiquement,
+  enSerie,
+  existe,
+  mettreEnQuarantaine,
+} from "@/lib/server/atomic-file";
 import { parseDocument } from "@/lib/budget-document";
 import { emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument } from "@/features/budget/types";
@@ -78,63 +83,11 @@ function cheminBudget(): string {
   return path.join(repertoire(), "budget.json");
 }
 
-function cheminTemporaire(): string {
-  return path.join(repertoire(), "budget.json.tmp");
-}
-
-/**
- * Les deux-points d'un horodatage ISO sont **interdits dans un nom de fichier Windows**. Les
- * remplacer ici évite un échec de quarantaine au pire moment : celui où l'on tente de sauver
- * un contenu abîmé.
- */
-function cheminQuarantaine(maintenant: Date): string {
-  const horodatage = maintenant.toISOString().replace(/:/g, "-");
-  return path.join(repertoire(), `budget.corrupted-${horodatage}.json`);
-}
-
-// --- Sérialisation des écritures ---------------------------------------------------------
-
-let chaine: Promise<unknown> = Promise.resolve();
-
-/**
- * Exécute `operation` après toutes celles déjà en file, qu'elles aient abouti ou échoué.
- * L'échec de l'une ne doit pas rompre la chaîne des suivantes.
- */
-function enSerie<T>(operation: () => Promise<T>): Promise<T> {
-  const resultat = chaine.then(operation, operation);
-  chaine = resultat.then(
-    () => undefined,
-    () => undefined,
-  );
-  return resultat;
-}
+// Les primitives d'atomicité, de sérialisation et de quarantaine vivent dans
+// `atomic-file.ts`, partagé avec le magasin bancaire (fonctionnalité 006, décision D3).
+const CLE_SERIE = "budget";
 
 // --- Lecture -----------------------------------------------------------------------------
-
-async function existe(chemin: string): Promise<boolean> {
-  try {
-    await access(chemin, constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Met un contenu illisible de côté par un **simple `rename`**.
- *
- * Un déplacement, et non une copie suivie d'un effacement : l'opération est atomique, le
- * contenu ne peut donc jamais exister en double ni disparaître entre les deux étapes. Si elle
- * échoue, le fichier d'origine reste intégralement en place — mieux vaut échouer à chaque
- * lecture que détruire un contenu qu'on ne sait pas relire.
- */
-async function mettreEnQuarantaine(): Promise<void> {
-  try {
-    await rename(cheminBudget(), cheminQuarantaine(new Date()));
-  } catch {
-    // Volontairement silencieux : voir ci-dessus.
-  }
-}
 
 /** Valide le conteneur lui-même, pas seulement le document qu'il porte (principe IV). */
 function parseConteneur(
@@ -200,14 +153,14 @@ export async function readBudget(): Promise<ReadOutcome> {
   try {
     analyse = JSON.parse(brut);
   } catch {
-    await mettreEnQuarantaine();
+    await mettreEnQuarantaine(cheminBudget());
     return { ok: false, reason: "unreadable" };
   }
 
   const conteneur = parseConteneur(analyse);
   if (!conteneur.ok) {
     // Le fichier d'une version postérieure reste strictement en place.
-    if (conteneur.reason === "unreadable") await mettreEnQuarantaine();
+    if (conteneur.reason === "unreadable") await mettreEnQuarantaine(cheminBudget());
     return { ok: false, reason: conteneur.reason };
   }
 
@@ -221,20 +174,6 @@ export async function readBudget(): Promise<ReadOutcome> {
 
 // --- Écriture -----------------------------------------------------------------------------
 
-async function ecrireAtomiquement(conteneur: StoredBudget): Promise<boolean> {
-  const temporaire = cheminTemporaire();
-  try {
-    await mkdir(repertoire(), { recursive: true });
-    await writeFile(temporaire, `${JSON.stringify(conteneur, null, 2)}\n`, "utf8");
-    // `rename` sur le même système de fichiers est atomique : à aucun instant le fichier de
-    // référence n'existe à moitié écrit.
-    await rename(temporaire, cheminBudget());
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Remplace l'état central si `baseRevision` correspond encore à la révision courante.
  *
@@ -246,7 +185,7 @@ export function writeBudget(
   document: unknown,
   baseRevision: number,
 ): Promise<WriteOutcome> {
-  return enSerie(async () => {
+  return enSerie(CLE_SERIE, async () => {
     // Revalidation avant écriture : seul le résultat de l'analyseur est persisté, jamais le
     // corps reçu tel quel — même règle que `saveDocument()` dans le navigateur.
     const controle = parseDocument(document);
@@ -271,7 +210,7 @@ export function writeBudget(
       document: controle.value,
     };
 
-    if (!(await ecrireAtomiquement(conteneur))) {
+    if (!(await ecrireJsonAtomiquement(cheminBudget(), conteneur))) {
       return { ok: false, reason: "writeFailed" } as const;
     }
 

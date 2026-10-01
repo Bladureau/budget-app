@@ -43,7 +43,17 @@ import {
 } from "@/features/budget/transfer";
 import type { ImportResult } from "@/features/budget/transfer";
 import { triggerDownload } from "@/lib/download";
+import { fetchBankStatus, fetchOperations, startConnect } from "@/features/banking/client";
+import type { ClientFailure } from "@/features/banking/client";
+import {
+  classifyAsExpense,
+  classifyAsIgnored,
+  classifyWithRule,
+  processBatch,
+} from "@/features/banking/rules";
+import type { BankStatus } from "@/features/banking/types";
 import type {
+  BankSource,
   BudgetDocument,
   Cents,
   Envelope,
@@ -54,6 +64,13 @@ import type {
   Subscription,
   SyncState,
 } from "@/features/budget/types";
+
+/**
+ * État de la synchronisation bancaire (fonctionnalité 006), distinct de `SyncState` : la
+ * banque et le stockage central échouent indépendamment, et les confondre cacherait lequel
+ * appelle un geste de l'utilisateur.
+ */
+export type BankSyncState = "idle" | "syncing" | ClientFailure;
 
 /**
  * Motif d’alerte présenté à l’utilisateur (voir contracts/interface.md).
@@ -136,6 +153,27 @@ interface BudgetContextValue {
   undoImport: () => boolean;
   canUndoImport: boolean;
 
+  /**
+   * Synchronisation bancaire (fonctionnalité 006). `null` tant que l'état n'a pas été lu.
+   */
+  bankStatus: BankStatus | null;
+  bankSyncState: BankSyncState;
+  /** Date de début d'import ; modifiable tant qu'aucune opération n'a été traitée (D12). */
+  setImportFrom: (date: IsoDate) => boolean;
+  /** Ouvre la page de la banque ; rend le motif d'échec, ou rien si la page s'ouvre. */
+  connectBank: (bank: BankSource) => Promise<ClientFailure | null>;
+  /** Bouton « Synchroniser maintenant » des banques. */
+  syncBanks: () => void;
+  /** Classement d'un élément « À classer ». */
+  classifyInboxAsExpense: (ref: string, category: string | null) => void;
+  classifyInboxAsIgnored: (ref: string) => void;
+  /** Rend `false` si le motif est invalide (moins de 2 caractères). */
+  classifyInboxWithRule: (
+    ref: string,
+    contains: string,
+    subscriptionId: string | null,
+  ) => boolean;
+
   /** Renvoient `false` si l’opération viole un invariant du modèle. */
   changeSubscriptionAmount: (
     id: string,
@@ -210,11 +248,16 @@ function alerteDepuisCode(code: ServerCode | undefined): BudgetNotice {
  * conflit imposerait un choix à quelqu'un qui n'a aucune modification locale à défendre.
  */
 function documentEstVide(document: BudgetDocument): boolean {
+  // Les règles bancaires ne comptent pas : un budget neuf en porte déjà, celles fournies
+  // d'office. Le registre et la date de début d'import, eux, sont des traces d'usage.
   return (
     document.incomes.length === 0 &&
     document.subscriptions.length === 0 &&
     document.expenses.length === 0 &&
-    document.envelopes.length === 0
+    document.envelopes.length === 0 &&
+    document.refunds.length === 0 &&
+    document.banking.importFrom === null &&
+    document.banking.ledger.length === 0
   );
 }
 
@@ -285,6 +328,16 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
   // notée « à refaire », le document poussé étant toujours le dernier état complet.
   const pousseeEnVol = useRef(false);
   const pousseeARefaire = useRef(false);
+
+  // --- Synchronisation bancaire (fonctionnalité 006) ----------------------------------------
+
+  const [bankStatus, setBankStatus] = useState<BankStatus | null>(null);
+  const [bankSyncState, setBankSyncState] = useState<BankSyncState>("idle");
+  // Déclenchée après chaque lecture réussie du budget. Passée par une référence parce qu'elle
+  // dépend d'`appliquer`, défini plus bas, alors que `reconcilier` en a besoin plus haut.
+  const declencherBanques = useRef<() => void>(() => {});
+  // Miroir du conflit, lisible après un `await` sans attendre un nouveau rendu.
+  const conflitEnCours = useRef(false);
 
   const etatDEchec = (raison: "offline" | "unauthorized" | "rejected" | "serverError"): SyncState =>
     raison === "offline" ? "offline" : raison === "unauthorized" ? "unauthorized" : "failed";
@@ -368,6 +421,9 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       setPendingChanges(false);
       setConflict(null);
       setSyncState("idle");
+      // La copie locale est à jour : c'est le seul moment où traiter les opérations bancaires
+      // (R13). Sur une copie périmée, deux appareils produiraient plus souvent un conflit.
+      declencherBanques.current();
       return;
     }
 
@@ -682,6 +738,114 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     [appliquer],
   );
 
+  // --- Synchronisation bancaire (fonctionnalité 006) ----------------------------------------
+
+  /**
+   * Récupère les opérations et les traite **en un seul lot, une seule mutation** (D11).
+   *
+   * Le traitement n'a lieu que si la copie locale est à jour : ni modification en attente, ni
+   * conflit (R13). La vérification est refaite **après** l'appel réseau, l'état ayant pu changer
+   * pendant l'attente. L'import passe ensuite par `appliquer`, comme une saisie : aucun nouveau
+   * type de conflit n'apparaît (R1).
+   */
+  const synchroniserBanques = useCallback(
+    async (manuelle: boolean) => {
+      const importFrom = lireInstantaneClient().banking.importFrom;
+      if (importFrom === null) return;
+
+      setBankSyncState("syncing");
+      const resultat = await fetchOperations(importFrom, manuelle);
+      if (!resultat.ok) {
+        setBankSyncState(resultat.reason);
+        return;
+      }
+      setBankStatus(resultat.value.status);
+      setBankSyncState("idle");
+
+      if (readSyncMetadata().pendingChanges || conflitEnCours.current) return;
+
+      const actuel = lireInstantaneClient();
+      const suivant = processBatch(resultat.value.operations, actuel);
+      if (suivant !== actuel) appliquer(suivant);
+    },
+    [appliquer],
+  );
+
+  useEffect(() => {
+    declencherBanques.current = () => void synchroniserBanques(false);
+  }, [synchroniserBanques]);
+
+  useEffect(() => {
+    conflitEnCours.current = conflict !== null;
+  }, [conflict]);
+
+  // État des banques au chargement, pour afficher le panneau même avant toute date de début.
+  useEffect(() => {
+    let annule = false;
+    void (async () => {
+      const resultat = await fetchBankStatus();
+      if (annule) return;
+      if (resultat.ok) setBankStatus(resultat.value);
+      else setBankSyncState(resultat.reason);
+    })();
+    return () => {
+      annule = true;
+    };
+  }, []);
+
+  const setImportFrom = useCallback(
+    (date: IsoDate) => {
+      const actuel = lireInstantaneClient();
+      // Figée dès la première opération traitée : la déplacer ensuite ferait réapparaître ou
+      // disparaître des opérations déjà tranchées.
+      if (actuel.banking.ledger.length > 0) return false;
+      return appliquer({ ...actuel, banking: { ...actuel.banking, importFrom: date } });
+    },
+    [appliquer],
+  );
+
+  const connectBank = useCallback(async (bank: BankSource) => {
+    const resultat = await startConnect(bank);
+    if (!resultat.ok) return resultat.reason;
+    window.location.assign(resultat.value);
+    return null;
+  }, []);
+
+  const classifyInboxAsExpense = useCallback(
+    (ref: string, category: string | null) => {
+      const actuel = lireInstantaneClient();
+      const suivant = classifyAsExpense(actuel, ref, category);
+      if (suivant !== actuel) appliquer(suivant);
+    },
+    [appliquer],
+  );
+
+  const classifyInboxAsIgnored = useCallback(
+    (ref: string) => {
+      const actuel = lireInstantaneClient();
+      const suivant = classifyAsIgnored(actuel, ref);
+      if (suivant !== actuel) appliquer(suivant);
+    },
+    [appliquer],
+  );
+
+  const classifyInboxWithRule = useCallback(
+    (ref: string, contains: string, subscriptionId: string | null) => {
+      const resultat = classifyWithRule(lireInstantaneClient(), ref, {
+        id: newId(),
+        contains,
+        action:
+          subscriptionId === null
+            ? { type: "ignore" }
+            : { type: "subscription", subscriptionId },
+      });
+      if (!resultat.ok) return false;
+      appliquer(resultat.document);
+      return true;
+    },
+    [appliquer],
+  );
+
   // --- Export et import (fonctionnalité 004) -------------------------------------------
 
   const exportData = useCallback(() => {
@@ -770,6 +934,14 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       confirmImport,
       undoImport,
       canUndoImport: pointRestauration !== null,
+      bankStatus,
+      bankSyncState,
+      setImportFrom,
+      connectBank,
+      syncBanks: () => void synchroniserBanques(true),
+      classifyInboxAsExpense,
+      classifyInboxAsIgnored,
+      classifyInboxWithRule,
     }),
     [
       document,
@@ -803,6 +975,14 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       confirmImport,
       undoImport,
       pointRestauration,
+      bankStatus,
+      bankSyncState,
+      setImportFrom,
+      connectBank,
+      synchroniserBanques,
+      classifyInboxAsExpense,
+      classifyInboxAsIgnored,
+      classifyInboxWithRule,
     ],
   );
 

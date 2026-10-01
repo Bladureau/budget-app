@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { STORAGE_KEY } from "@/lib/storage";
+import { DOCUMENT_VERSION, emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument } from "@/features/budget/types";
 
 /**
@@ -23,7 +24,7 @@ function aujourdHui(): string {
 /** Document de départ : 900,00 € disponibles ce mois, aucune dépense. */
 function documentAvecBudget(expenses: BudgetDocument["expenses"] = []): BudgetDocument {
   return {
-    version: 3,
+    ...emptyDocument(),
     incomes: [
       {
         id: "revenu",
@@ -134,7 +135,7 @@ describe("Tableau de bord — saisie d'une dépense (scénario 2)", () => {
 
     await waitFor(() => {
       const doc = documentStocke();
-      expect(doc?.version).toBe(3);
+      expect(doc?.version).toBe(DOCUMENT_VERSION);
       expect(doc?.expenses).toHaveLength(1);
       expect(doc?.expenses[0]).toMatchObject({ amountCents: 3333, date: aujourdHui() });
     });

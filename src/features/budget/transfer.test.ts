@@ -6,6 +6,7 @@ import {
   parseImport,
   serializeExport,
 } from "@/features/budget/transfer";
+import { DOCUMENT_VERSION, emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument, Income, Subscription } from "@/features/budget/types";
 
 const salaire: Income = {
@@ -37,7 +38,7 @@ const assurance: Subscription = {
 };
 
 const documentComplet: BudgetDocument = {
-  version: 3,
+  ...emptyDocument(),
   incomes: [salaire, prime],
   subscriptions: [assurance],
   expenses: [],
@@ -45,7 +46,7 @@ const documentComplet: BudgetDocument = {
 };
 
 const documentVide: BudgetDocument = {
-  version: 3,
+  ...emptyDocument(),
   incomes: [],
   subscriptions: [],
   expenses: [],
@@ -373,7 +374,7 @@ describe("Fidélité de l’aller-retour", () => {
       pauses: [],
     }));
     const volumineux: BudgetDocument = {
-      version: 3,
+      ...emptyDocument(),
       incomes,
       subscriptions,
       expenses: [],
@@ -391,7 +392,7 @@ describe("Fidélité de l’aller-retour", () => {
 
   it("conserve les montants exacts au centime, montant maximal inclus (CS-004)", () => {
     const extremes: BudgetDocument = {
-      version: 3,
+      ...emptyDocument(),
       incomes: [
         { id: "min", label: "Un centime", amountCents: 1, kind: "oneOff", date: "2026-01-01" },
         {
@@ -419,7 +420,7 @@ describe("Fidélité de l’aller-retour", () => {
 
   it("restitue accents et emoji à l’identique (CS-010)", () => {
     const accentue: BudgetDocument = {
-      version: 3,
+      ...emptyDocument(),
       incomes: [
         {
           id: "accents",
@@ -490,7 +491,7 @@ describe("parseImport — fichier d’une version antérieure (EF-024)", () => {
     expect(resultat.ok).toBe(true);
     if (!resultat.ok) return;
 
-    expect(resultat.document.version).toBe(3);
+    expect(resultat.document.version).toBe(DOCUMENT_VERSION);
     expect(resultat.document.expenses).toEqual([]);
     expect(resultat.document.envelopes).toEqual([]);
   });
@@ -511,8 +512,8 @@ describe("parseImport — fichier d’une version antérieure (EF-024)", () => {
     if (!resultat.ok) return;
 
     const enveloppe = JSON.parse(serializeExport(resultat.document, DATE_EXPORT));
-    expect(enveloppe.formatVersion).toBe(3);
-    expect(enveloppe.data.version).toBe(3);
+    expect(enveloppe.formatVersion).toBe(FORMAT_VERSION);
+    expect(enveloppe.data.version).toBe(DOCUMENT_VERSION);
   });
 });
 
@@ -520,7 +521,7 @@ describe("parseImport — fichier d’une version antérieure (EF-024)", () => {
 
 describe("aller-retour avec des enveloppes (fonctionnalité 001)", () => {
   const avecEnveloppes: BudgetDocument = {
-    version: 3,
+    ...emptyDocument(),
     incomes: [salaire],
     subscriptions: [],
     expenses: [
@@ -533,10 +534,10 @@ describe("aller-retour avec des enveloppes (fonctionnalité 001)", () => {
     ],
   };
 
-  it("annonce la version 3 dans l'en-tete et dans le document", () => {
+  it("annonce la version courante dans l'en-tete et dans le document", () => {
     const enveloppe = JSON.parse(serializeExport(avecEnveloppes, DATE_EXPORT));
-    expect(enveloppe.formatVersion).toBe(3);
-    expect(enveloppe.data.version).toBe(3);
+    expect(enveloppe.formatVersion).toBe(FORMAT_VERSION);
+    expect(enveloppe.data.version).toBe(DOCUMENT_VERSION);
     expect(enveloppe.data.envelopes).toHaveLength(2);
   });
 
@@ -570,5 +571,99 @@ describe("aller-retour avec des enveloppes (fonctionnalité 001)", () => {
     };
     const resultat = parseImport(fichierValide({ data: abime }));
     expect(resultat.ok).toBe(false);
+  });
+});
+
+// --- Fonctionnalité 006 : document v4 et données bancaires (EF-035) ------------------------
+
+describe("aller-retour avec des données bancaires (fonctionnalité 006)", () => {
+  const avecBanque: BudgetDocument = {
+    ...emptyDocument(),
+    expenses: [
+      {
+        id: "bank:lcl:c1",
+        amountCents: 3382,
+        date: "2026-10-03",
+        label: "PETROLEC SUD",
+        category: null,
+        source: "lcl",
+        bankRef: "lcl:c1",
+      },
+    ],
+    refunds: [
+      {
+        id: "bank:lcl:r1",
+        amountCents: 499,
+        date: "2026-10-07",
+        label: "Twitch",
+        category: null,
+        source: "lcl",
+        bankRef: "lcl:r1",
+      },
+    ],
+    banking: {
+      ...emptyDocument().banking,
+      importFrom: "2026-10-01",
+      ledger: [
+        { ref: "lcl:c1", outcome: "expense", reason: "structural:card" },
+        { ref: "lcl:r1", outcome: "refund", reason: "structural:cardRefund" },
+        { ref: "lcl:v1", outcome: "inbox", reason: "structural:unknown" },
+      ],
+      inbox: [
+        {
+          ref: "lcl:v1",
+          bank: "lcl",
+          date: "2026-10-02",
+          amountCents: 35000,
+          direction: "debit",
+          kind: "transferOut",
+          label: "VIR SEPA Jean Dupont",
+          rawLabel: "VIREMENT · VIR SEPA Jean Dupont",
+          why: "noRule",
+        },
+      ],
+    },
+  };
+
+  it("restitue registre, règles, « À classer » et remboursements", () => {
+    const importe = parseImport(serializeExport(avecBanque, DATE_EXPORT));
+    expect(importe.ok).toBe(true);
+    if (importe.ok) expect(importe.document).toEqual(avecBanque);
+  });
+
+  it("n'exporte aucun secret ni identifiant de session (CS-009)", () => {
+    const contenu = serializeExport(avecBanque, DATE_EXPORT);
+    expect(contenu).not.toMatch(/sessionId|session_id|accountUid|ibanHash|BEGIN [A-Z ]*PRIVATE KEY/);
+  });
+
+  it("réimporte un export de format 3 et le migre en version courante", () => {
+    const exportV3 = JSON.stringify({
+      application: APPLICATION_MARKER,
+      formatVersion: 3,
+      exportedAt: DATE_EXPORT.toISOString(),
+      data: {
+        version: 3,
+        incomes: [salaire],
+        subscriptions: [],
+        expenses: [{ id: "d1", amountCents: 1250, date: "2026-09-03", category: "Courses" }],
+        envelopes: [],
+      },
+    });
+
+    const importe = parseImport(exportV3);
+    expect(importe.ok).toBe(true);
+    if (!importe.ok) return;
+    expect(importe.document.version).toBe(DOCUMENT_VERSION);
+    expect(importe.document.expenses[0].amountCents).toBe(1250);
+    expect(importe.document.refunds).toEqual([]);
+    expect(importe.document.banking.rules.length).toBeGreaterThan(0);
+  });
+
+  it("refuse un export de format 5", () => {
+    const resultat = parseImport(
+      fichierValide({ formatVersion: FORMAT_VERSION + 1, data: { ...avecBanque, version: 5 } }),
+    );
+    expect(resultat.ok).toBe(false);
+    if (!resultat.ok) expect(resultat.reason).toBe("futureVersion");
   });
 });

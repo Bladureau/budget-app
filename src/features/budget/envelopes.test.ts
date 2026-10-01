@@ -7,6 +7,7 @@ import {
   envelopesForMonth,
   findEnvelope,
 } from "@/features/budget/envelopes";
+import { emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument, Envelope, Expense } from "@/features/budget/types";
 
 function enveloppe(id: string, category: string, month: string, limitCents: number): Envelope {
@@ -23,7 +24,7 @@ function depense(
 }
 
 function documentAvec(envelopes: Envelope[], expenses: Expense[]): BudgetDocument {
-  return { version: 3, incomes: [], subscriptions: [], expenses, envelopes };
+  return { ...emptyDocument(), incomes: [], subscriptions: [], expenses, envelopes };
 }
 
 // --- T012 : états et seuil ---------------------------------------------------------------

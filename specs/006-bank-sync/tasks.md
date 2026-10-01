@@ -50,13 +50,13 @@ Application Next.js existante : code sous `src/`, tests à côté du code (`*.te
 **Objet** : figer une référence de non-régression et s'assurer qu'aucun secret ni donnée réelle
 ne peut fuiter avant la première ligne.
 
-- [ ] T001 Enregistrer la référence de non-régression : exécuter `npm run build`, `npm run lint`
+- [X] T001 Enregistrer la référence de non-régression : exécuter `npm run build`, `npm run lint`
       et `npm test`, et consigner le nombre de tests au vert dans
       `specs/006-bank-sync/quickstart.md` (section 3).
-- [ ] T002 [P] Contrôler que `.gitignore` couvre `*.pem` et `/data/`, et que `.dockerignore`
+- [X] T002 [P] Contrôler que `.gitignore` couvre `*.pem` et `/data/`, et que `.dockerignore`
       couvre `data/` et `.env*` (vérifié au plan : aucune modification attendue). Consigner le
       résultat dans la description de la demande de fusion.
-- [ ] T003 [P] Créer les jeux d'essai synthétiques des transactions brutes Enable Banking dans
+- [X] T003 [P] Créer les jeux d'essai synthétiques des transactions brutes Enable Banking dans
       `src/lib/server/banking/fixtures.ts` : une transaction LCL de chaque nature du tableau
       §2 de `contracts/normalisation.md`, les 28 formes Revolut de septembre (paiements,
       pré-autorisations à 0,00 €, recharges, arrondis), et les cas malformés (montant `"1,5"`,
@@ -80,103 +80,103 @@ Sans liaison, aucun récit ne peut être exercé de bout en bout.
 
 ### Document budgétaire v4
 
-- [ ] T004 Étendre `src/features/budget/types.ts` : `Expense.source?` et `Expense.bankRef?`,
+- [X] T004 Étendre `src/features/budget/types.ts` : `Expense.source?` et `Expense.bankRef?`,
       types `Refund`, `BankSource`, `LedgerEntry`, `InboxItem`, `TreatmentRule`,
       `CategoryRule`, `BankingState`, ajout de `refunds` et `banking` à `BudgetDocument`,
       `DOCUMENT_VERSION = 4`, `emptyDocument()` complété (data-model §1).
-- [ ] T005 Créer `src/features/banking/types.ts` : `BankOperation`, `BankOperationKind`,
+- [X] T005 Créer `src/features/banking/types.ts` : `BankOperation`, `BankOperationKind`,
       `BankStatus` (forme de `GET /api/banking/status`), en réexportant les types bancaires du
       document depuis `src/features/budget/types.ts` plutôt qu'en les redéfinissant.
-- [ ] T006 Créer `src/features/banking/initial-rules.ts` : règles de traitement initiales
+- [X] T006 Créer `src/features/banking/initial-rules.ts` : règles de traitement initiales
       (`LOYER` → ignorer, LCL ; `Bunq` → ignorer, Revolut ; `UMS-ULYS` → dépense, LCL) et règles
       de catégorie initiales (R11), sous forme de fonctions rendant de **nouvelles** copies
       avec identifiants stables (`initial:loyer`, `initial:cat-carrefour`…).
-- [ ] T007 Étendre `src/lib/budget-document.ts` : migration additive 3 → 4 (`refunds: []`,
+- [X] T007 Étendre `src/lib/budget-document.ts` : migration additive 3 → 4 (`refunds: []`,
       `banking` avec `importFrom: null`, registre et liste vides, règles initiales de T006),
       analyse de `refunds`, `banking`, `Expense.source` / `bankRef`, et invariants de
       data-model §1.5 (références uniques, `inbox` ⊂ registre en `inbox`, `bankRef` unique sur
       dépenses + remboursements, identifiants de règles dans le contrôle d'unicité global).
-- [ ] T008 Créer `src/lib/budget-document.test.ts` (les tests existants de l'analyseur vivent
+- [X] T008 Créer `src/lib/budget-document.test.ts` (les tests existants de l'analyseur vivent
       dans `src/lib/storage.test.ts` et `src/lib/storage.security.test.ts`, qui doivent
       continuer de passer) : document v3 migré sans perte au centime ; v1 → v4 ; règles initiales
       présentes après migration et **absentes** si l'utilisateur les a supprimées d'un document
       déjà v4 ; chaque invariant de §1.5 violé un à un → `invalidData` ; v5 → `futureVersion`.
-- [ ] T009 [P] Passer `FORMAT_VERSION` à 4 dans `src/features/budget/transfer.ts` et étendre
+- [X] T009 [P] Passer `FORMAT_VERSION` à 4 dans `src/features/budget/transfer.ts` et étendre
       `src/features/budget/transfer.test.ts` : un export v3 se réimporte et migre ; un export v4
       restitue registre, règles, « À classer » et remboursements ; un export v5 est refusé.
 
 ### Primitives de fichier atomique (D3)
 
-- [ ] T010 Extraire de `src/lib/server/budget-store.ts` vers `src/lib/server/atomic-file.ts` la
+- [X] T010 Extraire de `src/lib/server/budget-store.ts` vers `src/lib/server/atomic-file.ts` la
       sérialisation (`enSerie`, une chaîne **par fichier**), l'écriture atomique (temporaire puis
       `rename`) et la quarantaine horodatée compatible Windows. `budget-store.ts` s'appuie
       dessus sans changer de comportement.
-- [ ] T011 Confirmer la non-régression : `src/lib/server/budget-store.test.ts` et
+- [X] T011 Confirmer la non-régression : `src/lib/server/budget-store.test.ts` et
       `src/app/api/budget/route.test.ts` passent sans modification ; ajouter
       `src/lib/server/atomic-file.test.ts` (écriture concurrente sérialisée, coupure simulée
       entre écriture et `rename`, quarantaine).
 
 ### Accès au fournisseur (serveur)
 
-- [ ] T012 [P] Créer `src/lib/server/banking/config.ts` : lecture à chaque appel de
+- [X] T012 [P] Créer `src/lib/server/banking/config.ts` : lecture à chaque appel de
       `ENABLE_BANKING_APP_ID`, `ENABLE_BANKING_KEY_PATH` et `BANKING_REDIRECT_URL` ; rend `null`
       si l'un manque, si la clé est illisible ou ne commence pas par `-----BEGIN` (fermeture par
       défaut, R6). Aucune journalisation de la clé.
-- [ ] T013 [P] Créer `src/lib/server/banking/config.test.ts` : configuration complète, chaque
+- [X] T013 [P] Créer `src/lib/server/banking/config.test.ts` : configuration complète, chaque
       variable absente, clé illisible, clé vide.
-- [ ] T014 Créer `src/lib/server/banking/enable-banking.ts` : JWT RS256 par `node:crypto`
+- [X] T014 Créer `src/lib/server/banking/enable-banking.ts` : JWT RS256 par `node:crypto`
       (`kid` = identifiant d'application, `iss`, `aud`, durée 1 h, R5) ; fonctions
       `startAuthorization(bank, state, validUntil)`, `createSession(code)`,
       `fetchTransactions(accountUid, dateFrom, psuHeaders)` avec pagination par
       `continuation_key` et `transaction_status=BOOK`, `getAspspMaxValidity(bank)`. Erreurs du
       fournisseur traduites en `BankError` (`expired`, `revoked`, `rateLimited`,
       `unavailable`). Toute réponse part d'`unknown` et est validée (principe IV).
-- [ ] T015 Créer `src/lib/server/banking/enable-banking.test.ts` avec `fetch` simulé : JWT
+- [X] T015 Créer `src/lib/server/banking/enable-banking.test.ts` avec `fetch` simulé : JWT
       vérifiable avec la clé publique de test ; en-têtes `Psu-*` transmis ; pagination ;
       chaque erreur du fournisseur traduite ; réponse mal formée refusée.
 
 ### Magasin bancaire (serveur)
 
-- [ ] T016 Créer `src/lib/server/banking/banking-store.ts` : `banking.json` sous
+- [X] T016 Créer `src/lib/server/banking/banking-store.ts` : `banking.json` sous
       `BUDGET_DATA_DIR`, version 1, `BankConnection` (data-model §3), lecture, remplacement
       d'une connexion (identifiée par `ibanHash`, empreinte SHA-256 de l'IBAN normalisé), fusion
       d'opérations dans le cache **dédupliquée par `ref`**, mise à jour
       de `lastFetchAt` / `lastAttemptAt` / `lastError`, via `atomic-file.ts`. `sessionId` ne
       sort jamais de ce module autrement que vers `enable-banking.ts`.
-- [ ] T017 Créer `src/lib/server/banking/banking-store.test.ts` sur répertoire temporaire réel :
+- [X] T017 Créer `src/lib/server/banking/banking-store.test.ts` sur répertoire temporaire réel :
       fichier absent, contenu corrompu mis en quarantaine, fusion idempotente d'un même lot,
       remplacement d'une connexion **conservant** le cache d'opérations (contrat API §4).
-- [ ] T018 [P] Créer `src/lib/server/banking/pending-auth.ts` : `state` de 32 octets aléatoires,
+- [X] T018 [P] Créer `src/lib/server/banking/pending-auth.ts` : `state` de 32 octets aléatoires,
       associé à la banque, en mémoire, expiré après 15 minutes, **consommé** à la lecture (R4).
-- [ ] T019 [P] Créer `src/lib/server/banking/pending-auth.test.ts` : consommation unique,
+- [X] T019 [P] Créer `src/lib/server/banking/pending-auth.test.ts` : consommation unique,
       expiration, `state` inconnu.
 
 ### Liaison minimale (points d'entrée)
 
-- [ ] T020 Créer `src/app/api/banking/status/route.ts` (contrat API §1) : `isAuthorized()`,
+- [X] T020 Créer `src/app/api/banking/status/route.ts` (contrat API §1) : `isAuthorized()`,
       `configured: false` si T012 rend `null`, aucune donnée sensible dans la réponse.
-- [ ] T021 Créer `src/app/api/banking/connect/route.ts` (contrat API §2) : `isAuthorized()`,
+- [X] T021 Créer `src/app/api/banking/connect/route.ts` (contrat API §2) : `isAuthorized()`,
       validation de `bank`, durée = minimum de 180 jours et du maximum annoncé par la banque,
       `state` de T018.
-- [ ] T022 Créer `src/app/api/banking/callback/route.ts` (contrat API §4) : **sans**
+- [X] T022 Créer `src/app/api/banking/callback/route.ts` (contrat API §4) : **sans**
       `isAuthorized()`, autorisé par `state` consommé ; création de session ; choix du compte
       selon `contracts/api-banking.md` §4 (renouvellement : compte dont l'empreinte d'IBAN égale
       `ibanHash` ; première liaison : **l'unique** compte en `EUR`, sinon `noAccount`) ;
       enregistrement de `ibanHash` et `ibanSuffix` seuls (jamais l'IBAN complet) ; `noAccount`
       si la session est vide ou sans compte retenu ; redirection `303` vers
       `/?banking=…` par `redirect()` de `next/navigation`.
-- [ ] T023 Créer `src/app/api/banking/routes.test.ts` : 401 sans cookie sur `status` et
+- [X] T023 Créer `src/app/api/banking/routes.test.ts` : 401 sans cookie sur `status` et
       `connect` ; `503 notConfigured` ; retour avec `state` inconnu, expiré, rejoué ; retour avec
       `error=server_error` ; session sans compte ; première liaison avec deux comptes `EUR` ou
       aucun ; renouvellement renvoyant un autre IBAN que celui enregistré ; **aucune** réponse ne contient `sessionId`,
       un IBAN complet, `ibanHash` ou un JWT (recherche par motif sur le corps).
-- [ ] T024 Créer `src/features/banking/client.ts` : `fetchBankStatus()`, `startConnect(bank)`,
+- [X] T024 Créer `src/features/banking/client.ts` : `fetchBankStatus()`, `startConnect(bank)`,
       chaque réponse validée champ par champ (principe IV), mêmes conventions que
       `src/features/budget/sync.ts` (`credentials: "same-origin"`, `cache: "no-store"`).
       Créer `src/features/banking/client.test.ts` avec `fetch` simulé : réponses valides, 401,
       503 `notConfigured`, réseau coupé, corps non JSON, champ manquant ou de mauvais type,
       URL de `connect` absente.
-- [ ] T025 Créer `src/features/banking/components/bank-panel.tsx` (version minimale) : état
+- [X] T025 Créer `src/features/banking/components/bank-panel.tsx` (version minimale) : état
       configuré / non configuré, bouton « Relier LCL » / « Relier Revolut », saisie de la date
       de début d'import proposée au 1ᵉʳ du mois courant et modifiable tant que le registre est
       vide (D12), lecture puis retrait du paramètre `?banking=` de l'URL. Le poser dans
@@ -198,18 +198,18 @@ de la période figure une et une seule fois au journal.
 
 ### Tests du récit 1
 
-- [ ] T026 [P] [US1] Créer `src/lib/server/banking/normalize-lcl.test.ts` : chaque nature du
+- [X] T026 [P] [US1] Créer `src/lib/server/banking/normalize-lcl.test.ts` : chaque nature du
       tableau §2 de `normalisation.md` ; extraction de `paymentDate` (`26/09/26` →
       `2026-09-26`) et du commerçant (`UBER   *EATS` → `UBER *EATS`) ; date invalide
       (`31/02/26`) → `null` ; montants `"35.8"` → 3580, `"50"` → 5000, `"0.00"` → 0,
       `"9000000.00"` (plus grand montant réaliste) ; montant `"1,5"` ou `"abc"`, `PDNG`,
       `entry_reference` absent → écartés et comptés.
-- [ ] T027 [P] [US1] Créer `src/lib/server/banking/normalize-revolut.test.ts` : natures du §3 ;
+- [X] T027 [P] [US1] Créer `src/lib/server/banking/normalize-revolut.test.ts` : natures du §3 ;
       **les 9 fusions** du tableau §3 (montants synthétiques de même forme) ; pré-autorisations
       à 0,00 € jamais candidates ; cas ambigu (2,30 € et 4,30 € pour un arrondi de 0,70 €) →
       arrondi conservé en `roundUp` ; arrondi de 100 centimes sur montant rond ; fusion
       idempotente si appliquée deux fois au même cache.
-- [ ] T028 [P] [US1] Créer `src/features/banking/rules.test.ts` (partie récit 1) : étapes 0, 1,
+- [X] T028 [P] [US1] Créer `src/features/banking/rules.test.ts` (partie récit 1) : étapes 0, 1,
       10 et 11 du contrat des règles ; dépense produite (§2) avec `id = bank:<ref>`, montant
       arrondi inclus, date de paiement, catégorie par première règle correspondante,
       `source` / `bankRef` ; **idempotence** de `processBatch` ; **indépendance à l'appareil**
@@ -217,25 +217,25 @@ de la période figure une et une seule fois au journal.
 
 ### Implémentation du récit 1
 
-- [ ] T029 [P] [US1] Créer `src/lib/server/banking/normalize-lcl.ts` selon `normalisation.md`
+- [X] T029 [P] [US1] Créer `src/lib/server/banking/normalize-lcl.ts` selon `normalisation.md`
       §1 et §2. Conversion des montants depuis le texte, **sans `parseFloat`** (EF-036).
-- [ ] T030 [P] [US1] Créer `src/lib/server/banking/normalize-revolut.ts` selon §1 et §3, avec
+- [X] T030 [P] [US1] Créer `src/lib/server/banking/normalize-revolut.ts` selon §1 et §3, avec
       `mergeRoundUps(operations)` appliquée au cache entier (R8).
-- [ ] T031 [US1] Créer `src/app/api/banking/operations/route.ts` (contrat API §3) : validation de
+- [X] T031 [US1] Créer `src/app/api/banking/operations/route.ts` (contrat API §3) : validation de
       `since` ; par banque reliée, récupération si la dernière tentative dépasse 6 h (5 min avec
       `refresh=manual`) depuis `since − 7 jours` ou la dernière opération connue − 7 jours ;
       en-têtes `Psu-Ip-Address` / `Psu-User-Agent` repris de la requête ; normalisation ;
       fusion au cache ; échec d'une banque sans effet sur l'autre ; réponse triée par
       `bookingDate` puis `ref`.
-- [ ] T032 [US1] Étendre `src/app/api/banking/routes.test.ts` : bornes de 6 h et 5 min
+- [X] T032 [US1] Étendre `src/app/api/banking/routes.test.ts` : bornes de 6 h et 5 min
       respectées (horloge injectée) ; cache servi entre deux récupérations ; une banque en
       erreur, l'autre rendue ; `since` invalide → 400.
-- [ ] T033 [US1] Créer `src/features/banking/rules.ts` : `decide(operation, document)` limité
+- [X] T033 [US1] Créer `src/features/banking/rules.ts` : `decide(operation, document)` limité
       aux étapes 0, 1, 10, 11 et aux règles de catégorie ; `processBatch(operations, document)`
       qui rend **un seul** nouveau document, inscrit chaque sort au registre (avec
       `mergedRefs`) et ne renvoie rien de modifié si toutes les décisions sont `skip`.
       Comparaisons via `normalizeForSearch` (`src/features/budget/expenses.ts`).
-- [ ] T034 [US1] Étendre `src/features/banking/client.ts` : `fetchOperations(since, manual)` avec
+- [X] T034 [US1] Étendre `src/features/banking/client.ts` : `fetchOperations(since, manual)` avec
       validation de chaque `BankOperation` (montant entier ≥ 0, dates valides, `kind` connu) ;
       une opération invalide est écartée, jamais devinée. Étendre
       `src/features/banking/client.test.ts` **avant** l'implémentation (principe III) : lot
@@ -243,19 +243,19 @@ de la période figure une et une seule fois au journal.
       sous forme de texte ; date invalide ; `kind` inconnu ; `roundUpCents` sans `roundUpRef` ;
       une opération invalide au milieu d'un lot valide (seule elle est écartée) ; corps non
       JSON ; 401.
-- [ ] T035 [US1] Étendre `src/features/budget/budget-provider.tsx` : après une lecture réussie du
+- [X] T035 [US1] Étendre `src/features/budget/budget-provider.tsx` : après une lecture réussie du
       budget, **seulement** si l'état est `idle` sans modification en attente ni conflit (R13)
       et si `banking.importFrom` est défini, appeler `fetchOperations` puis `processBatch`, et
       appliquer le résultat par **une seule** mutation `appliquer()`. Exposer `syncBanks()`
       (bouton manuel) et l'état bancaire au contexte. Aucun appel bancaire ne retarde
       l'affichage du budget local.
-- [ ] T036 [US1] Créer `src/features/banking/bank-sync.integration.test.tsx` : budget v4 vide,
+- [X] T036 [US1] Créer `src/features/banking/bank-sync.integration.test.tsx` : budget v4 vide,
       opérations simulées → dépenses visibles au journal et anneau mis à jour ; seconde
       ouverture → aucun doublon ; état `pending` ou `conflict` → aucun traitement.
-- [ ] T037 [P] [US1] Étendre `src/features/budget/components/expense-journal.tsx` : provenance
+- [X] T037 [P] [US1] Étendre `src/features/budget/components/expense-journal.tsx` : provenance
       affichée en texte (« LCL », « Revolut ») pour les dépenses importées, rien pour les
       saisies manuelles (EF-029).
-- [ ] T038 [US1] Étendre `src/features/banking/components/bank-panel.tsx` : bouton
+- [X] T038 [US1] Étendre `src/features/banking/components/bank-panel.tsx` : bouton
       « Synchroniser maintenant », date de dernière récupération réussie par banque (EF-013).
 
 **Point de contrôle** : avec des opérations simulées, les paiements carte apparaissent une seule
@@ -271,17 +271,17 @@ dépenses ni les revenus.
 **Test indépendant** : traiter le jeu d'essai de septembre ; aucune recharge, aucun crédit,
 aucun loyer, aucun Spotify n'apparaît en dépense.
 
-- [ ] T039 [P] [US2] Étendre `src/features/banking/rules.test.ts` : étapes 2, 4 à 9 et 9 bis du
+- [X] T039 [P] [US2] Étendre `src/features/banking/rules.test.ts` : étapes 2, 4 à 9 et 9 bis du
       contrat, une par une ; ordre de priorité (une règle utilisateur ne s'applique pas à un
       crédit) ; règle `subscription` vers un abonnement supprimé → ignorée ; prélèvement
       `UMS-ULYS` importé par règle → dépense datée de `bookingDate` (pas de date de paiement) ; 9 bis ne se
       déclenche pas pour un libellé d'abonnement de moins de 3 caractères ; **jeu d'essai de
       référence** de `contracts/regles.md` §5 (comptes par sort, LCL et Revolut).
-- [ ] T040 [US2] Étendre `decide()` dans `src/features/banking/rules.ts` : étapes structurelles
+- [X] T040 [US2] Étendre `decide()` dans `src/features/banking/rules.ts` : étapes structurelles
       2, 4, 5, 6, 7, 8 ; étape 9 (première règle de traitement, insensible à la casse et aux
       accents, sur libellé lisible et libellé brut, filtrée par banque) ; étape 9 bis
       (`possibleSubscription`).
-- [ ] T041 [US2] Étendre `src/features/banking/bank-sync.integration.test.tsx` : septembre
+- [X] T041 [US2] Étendre `src/features/banking/bank-sync.integration.test.tsx` : septembre
       simulé de bout en bout → total dépensé égal à la somme des seules dépenses attendues,
       revenus du mois inchangés (EF-020, CS-002).
 
@@ -297,24 +297,26 @@ l'utilisateur classe en un geste.
 **Test indépendant** : des virements inconnus apparaissent « À classer », le budget est
 inchangé ; chaque choix produit l'effet attendu.
 
-- [ ] T042 [P] [US3] Étendre `src/features/banking/rules.test.ts` (classement, contrat §4) :
+- [X] T042 [P] [US3] Étendre `src/features/banking/rules.test.ts` (classement, contrat §4) :
       « Dépense » avec et sans catégorie ; « Ignorer » ; « Toujours ignorer » ajoute une règle
       **en tête** et classe les autres éléments encore « À classer » qu'elle vise, sans toucher
       aux sorts déjà tranchés ; « Rattacher à l'abonnement » ; motif de moins de 2 caractères
       refusé.
-- [ ] T043 [US3] Ajouter à `src/features/banking/rules.ts` les fonctions pures
+- [X] T043 [US3] Ajouter à `src/features/banking/rules.ts` les fonctions pures
       `classifyAsExpense`, `classifyAsIgnored`, `classifyWithRule` (ignorer ou abonnement),
       selon le contrat §4.
-- [ ] T044 [US3] Exposer les actions de classement dans
+- [X] T044 [US3] Exposer les actions de classement dans
       `src/features/budget/budget-provider.tsx`, chacune passant par `appliquer()`.
-- [ ] T045 [US3] Créer `src/features/banking/components/inbox.tsx` : liste « À classer » (date,
+- [X] T045 [US3] Créer `src/features/banking/components/inbox.tsx` : liste « À classer » (date,
       montant, libellé lisible, libellé brut dépliable, motif `why` en texte) ; quatre choix par
       boutons libellés ; motif de règle proposé et modifiable avant validation ; choix de
       l'abonnement dans une liste ; utilisable au clavier et à 360 px (principe VII).
-- [ ] T046 [US3] Afficher le nombre d'éléments « À classer » à l'accueil dans
+- [X] T046 [US3] Afficher le nombre d'éléments « À classer » à l'accueil dans
       `src/features/budget/components/budget-view.tsx`, avec lien vers la liste (EF-026).
-- [ ] T047 [US3] Créer `src/features/banking/components/inbox.test.tsx` : chaque choix au
-      clavier ; liste vide ; élément `possibleSubscription` rattaché.
+- [X] T047 [US3] Tester la liste « À classer » : chaque choix au clavier ; liste vide ; élément
+      `possibleSubscription` rattaché. *(Réalisé dans
+      `src/features/banking/bank-sync.integration.test.tsx`, qui monte déjà l'application avec
+      un serveur simulé : un second fichier en aurait dupliqué toute la mise en place.)*
 
 **Point de contrôle** : avec le jeu de septembre, les 5 éléments LCL se classent et le budget
 reflète chaque choix.
@@ -342,7 +344,7 @@ l'enveloppe.
       `src/features/budget/` pour transmettre les remboursements.
 - [ ] T051 [US4] Modifier `src/features/budget/envelopes.ts` : consommation nette par catégorie
       dans `computeMonthlyEnvelopes`, y compris le groupe « hors enveloppe ».
-- [ ] T052 [US4] Ajouter l'étape 3 (`cardRefund` → remboursement daté de `bookingDate`) à
+- [X] T052 [US4] Ajouter l'étape 3 (`cardRefund` → remboursement daté de `bookingDate`) à
       `decide()` dans `src/features/banking/rules.ts`, avec son test dans
       `src/features/banking/rules.test.ts`.
 - [ ] T053 [US4] Afficher les remboursements dans
@@ -376,6 +378,8 @@ et « Reconnecter » ; reconnexion → aucun doublon.
       `src/app/api/banking/operations/route.ts` et `bank-panel.tsx` : si la plus ancienne
       opération reçue est postérieure à la date demandée de plus de 7 jours alors que la
       dernière récupération réussie date de plus de 90 jours (R3, NAS éteint longtemps).
+      *(Avancement : la détection côté serveur et le champ `historyGap` de l'état existent
+      depuis le MVP ; restent l'affichage dans `bank-panel.tsx` et les tests de T058.)*
 - [ ] T058 [US5] Étendre `src/app/api/banking/routes.test.ts` : reconnexion d'une banque déjà
       reliée → `sessionId` et `validUntil` remplacés, cache conservé, puis traitement côté
       navigateur sans aucun doublon (EF-012) ; erreurs `expired` et `revoked` consignées dans
@@ -417,13 +421,13 @@ vérifier que tout tient.
 
 **Objet** : déployer, documenter, valider de bout en bout.
 
-- [ ] T063 [P] Modifier `docker-compose.yml` : variables **facultatives**
+- [X] T063 [P] Modifier `docker-compose.yml` : variables **facultatives**
       `ENABLE_BANKING_APP_ID`, `BANKING_REDIRECT_URL`,
       `ENABLE_BANKING_KEY_PATH=/run/secrets/enable-banking.pem`, et montage **en lecture seule**
       de `${ENABLE_BANKING_KEY_FILE:-./data/enable-banking.pem}`. Commenter dans le fichier
       pourquoi la clé n'est pas dans le volume `budget-data` (l'application ne doit pas pouvoir
       modifier sa clé).
-- [ ] T064 [P] Documenter dans `README.md` les trois variables bancaires, l'emplacement de la clé
+- [X] T064 [P] Documenter dans `README.md` les trois variables bancaires, l'emplacement de la clé
       (`data/enable-banking.pem`, propriétaire `1001`, mode `400`) et le comportement si elles
       sont absentes.
 - [ ] T065 [P] Vérifier que rien de `src/lib/server/` n'entre dans le graphe client : aucune

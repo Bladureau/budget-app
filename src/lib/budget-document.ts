@@ -21,16 +21,28 @@ import {
   DOCUMENT_VERSION,
   MONTHS_PER_PERIOD,
 } from "@/features/budget/types";
+import { initialCategoryRules, initialTreatmentRules } from "@/features/banking/initial-rules";
 import type {
   AmountPeriod,
+  BankOperationKind,
+  BankSource,
+  BankingState,
   BudgetDocument,
+  CategoryRule,
   Envelope,
   Expense,
+  InboxItem,
+  InboxReason,
   Income,
   IsoDate,
+  LedgerEntry,
+  LedgerOutcome,
   PausePeriod,
   Periodicity,
+  Refund,
   Subscription,
+  TreatmentAction,
+  TreatmentRule,
 } from "@/features/budget/types";
 
 const LABEL_MAX = 80;
@@ -212,6 +224,14 @@ function analyserDepense(brut: unknown): Expense | null {
     category = brut.category;
   }
 
+  // Provenance bancaire (fonctionnalité 006) : les deux champs vont ensemble. Une dépense qui
+  // aurait l'un sans l'autre ne pourrait ni être expliquée, ni protégée d'un réimport.
+  const sourcePresente = brut.source !== undefined && brut.source !== null;
+  const referencePresente = brut.bankRef !== undefined && brut.bankRef !== null;
+  if (sourcePresente !== referencePresente) return null;
+  if (sourcePresente && !sourceValide(brut.source)) return null;
+  if (referencePresente && !referenceValide(brut.bankRef)) return null;
+
   const depense: Expense = {
     id: brut.id,
     amountCents: brut.amountCents,
@@ -219,7 +239,201 @@ function analyserDepense(brut: unknown): Expense | null {
     category,
   };
   if (label !== undefined) depense.label = label;
+  if (sourceValide(brut.source) && referenceValide(brut.bankRef)) {
+    depense.source = brut.source;
+    depense.bankRef = brut.bankRef;
+  }
   return depense;
+}
+
+// --- Synchronisation bancaire (fonctionnalité 006) ----------------------------------------
+
+const REF_MAX = 200;
+const MOTIF_MIN = 2;
+
+const SORTS: readonly LedgerOutcome[] = ["expense", "refund", "ignored", "inbox"];
+const NATURES: readonly BankOperationKind[] = [
+  "card",
+  "cardRefund",
+  "transferOut",
+  "transferIn",
+  "directDebit",
+  "bankFee",
+  "topUp",
+  "roundUp",
+  "other",
+];
+const MOTIFS_A_CLASSER: readonly InboxReason[] = [
+  "noRule",
+  "possibleSubscription",
+  "ambiguousRoundUp",
+  "foreignCurrency",
+  "unreadableDate",
+];
+
+function sourceValide(valeur: unknown): valeur is BankSource {
+  return valeur === "lcl" || valeur === "revolut";
+}
+
+function referenceValide(valeur: unknown): valeur is string {
+  return typeof valeur === "string" && valeur.length > 0 && valeur.length <= REF_MAX;
+}
+
+function texteBorne(valeur: unknown, max: number): valeur is string {
+  return typeof valeur === "string" && valeur.length <= max;
+}
+
+function motifValide(valeur: unknown): valeur is string {
+  return (
+    typeof valeur === "string" &&
+    valeur.trim().length >= MOTIF_MIN &&
+    valeur.length <= LABEL_MAX
+  );
+}
+
+function analyserRemboursement(brut: unknown): Refund | null {
+  if (!estObjet(brut)) return null;
+  if (!identifiantValide(brut.id)) return null;
+  if (!montantValide(brut.amountCents)) return null;
+  if (!dateValide(brut.date)) return null;
+  if (!sourceValide(brut.source)) return null;
+  if (!referenceValide(brut.bankRef)) return null;
+
+  let category: string | null = null;
+  if (brut.category !== undefined && brut.category !== null) {
+    if (!libelleValide(brut.category)) return null;
+    category = brut.category;
+  }
+
+  const remboursement: Refund = {
+    id: brut.id,
+    amountCents: brut.amountCents,
+    date: brut.date,
+    category,
+    source: brut.source,
+    bankRef: brut.bankRef,
+  };
+  if (brut.label !== undefined && brut.label !== null) {
+    if (!libelleValide(brut.label)) return null;
+    remboursement.label = brut.label;
+  }
+  return remboursement;
+}
+
+function analyserEntreeRegistre(brut: unknown): LedgerEntry | null {
+  if (!estObjet(brut)) return null;
+  if (!referenceValide(brut.ref)) return null;
+  if (typeof brut.outcome !== "string" || !SORTS.includes(brut.outcome as LedgerOutcome)) {
+    return null;
+  }
+  if (!texteBorne(brut.reason, 100) || brut.reason.length === 0) return null;
+
+  const entree: LedgerEntry = {
+    ref: brut.ref,
+    outcome: brut.outcome as LedgerOutcome,
+    reason: brut.reason,
+  };
+  if (brut.mergedRefs !== undefined) {
+    if (!Array.isArray(brut.mergedRefs) || !brut.mergedRefs.every(referenceValide)) return null;
+    entree.mergedRefs = [...brut.mergedRefs];
+  }
+  return entree;
+}
+
+function analyserElementAClasser(brut: unknown): InboxItem | null {
+  if (!estObjet(brut)) return null;
+  if (!referenceValide(brut.ref)) return null;
+  if (!sourceValide(brut.bank)) return null;
+  if (!dateValide(brut.date)) return null;
+  if (!montantValide(brut.amountCents)) return null;
+  if (brut.direction !== "debit" && brut.direction !== "credit") return null;
+  if (typeof brut.kind !== "string" || !NATURES.includes(brut.kind as BankOperationKind)) {
+    return null;
+  }
+  if (!texteBorne(brut.label, LABEL_MAX)) return null;
+  if (!texteBorne(brut.rawLabel, 500)) return null;
+  if (typeof brut.why !== "string" || !MOTIFS_A_CLASSER.includes(brut.why as InboxReason)) {
+    return null;
+  }
+
+  return {
+    ref: brut.ref,
+    bank: brut.bank,
+    date: brut.date,
+    amountCents: brut.amountCents,
+    direction: brut.direction,
+    kind: brut.kind as BankOperationKind,
+    label: brut.label,
+    rawLabel: brut.rawLabel,
+    why: brut.why as InboxReason,
+  };
+}
+
+function analyserAction(brut: unknown): TreatmentAction | null {
+  if (!estObjet(brut)) return null;
+  if (brut.type === "ignore") return { type: "ignore" };
+  if (brut.type === "expense") return { type: "expense" };
+  if (brut.type === "subscription" && identifiantValide(brut.subscriptionId)) {
+    return { type: "subscription", subscriptionId: brut.subscriptionId };
+  }
+  return null;
+}
+
+function analyserRegleTraitement(brut: unknown): TreatmentRule | null {
+  if (!estObjet(brut)) return null;
+  if (!identifiantValide(brut.id)) return null;
+  if (brut.bank !== null && !sourceValide(brut.bank)) return null;
+  if (!motifValide(brut.contains)) return null;
+  const action = analyserAction(brut.action);
+  if (!action) return null;
+  return { id: brut.id, bank: brut.bank, contains: brut.contains, action };
+}
+
+function analyserRegleCategorie(brut: unknown): CategoryRule | null {
+  if (!estObjet(brut)) return null;
+  if (!identifiantValide(brut.id)) return null;
+  if (!motifValide(brut.contains)) return null;
+  if (!libelleValide(brut.category)) return null;
+  return { id: brut.id, contains: brut.contains, category: brut.category };
+}
+
+function analyserListe<T>(brut: unknown, analyser: (element: unknown) => T | null): T[] | null {
+  if (!Array.isArray(brut)) return null;
+  const resultat: T[] = [];
+  for (const element of brut) {
+    const valeur = analyser(element);
+    if (!valeur) return null;
+    resultat.push(valeur);
+  }
+  return resultat;
+}
+
+function analyserEtatBancaire(brut: unknown): BankingState | null {
+  if (!estObjet(brut)) return null;
+  if (!dateOuNull(brut.importFrom)) return null;
+
+  const ledger = analyserListe(brut.ledger, analyserEntreeRegistre);
+  const inbox = analyserListe(brut.inbox, analyserElementAClasser);
+  const rules = analyserListe(brut.rules, analyserRegleTraitement);
+  const categoryRules = analyserListe(brut.categoryRules, analyserRegleCategorie);
+  if (!ledger || !inbox || !rules || !categoryRules) return null;
+
+  // Une référence n'a qu'un sort (R2).
+  const references = ledger.map((entree) => entree.ref);
+  if (new Set(references).size !== references.length) return null;
+
+  // Chaque élément « À classer » est inscrit au registre comme tel, une seule fois : c'est
+  // ce qui l'empêche d'être retraité pendant qu'il attend la décision de l'utilisateur.
+  const enAttente = new Set(
+    ledger.filter((entree) => entree.outcome === "inbox").map((entree) => entree.ref),
+  );
+  const aClasser = inbox.map((element) => element.ref);
+  if (new Set(aClasser).size !== aClasser.length) return null;
+  if (aClasser.length !== enAttente.size || !aClasser.every((ref) => enAttente.has(ref))) {
+    return null;
+  }
+
+  return { importFrom: brut.importFrom, ledger, inbox, rules, categoryRules };
 }
 
 function analyserEnveloppe(brut: unknown): Envelope | null {
@@ -278,6 +492,25 @@ function migrer(brut: Record<string, unknown>, depuis: number): Record<string, u
     version = 3;
   }
 
+  // 3 → 4 : ajout de `refunds` et `banking` (fonctionnalité 006), purement additif. Les
+  // règles initiales n'y sont écrites **qu'ici** : un document déjà en version 4 n'est jamais
+  // complété, si bien qu'une règle initiale supprimée par l'utilisateur ne revient pas.
+  if (version === 3) {
+    document = {
+      ...document,
+      version: 4,
+      refunds: [],
+      banking: {
+        importFrom: null,
+        ledger: [],
+        inbox: [],
+        rules: initialTreatmentRules(),
+        categoryRules: initialCategoryRules(),
+      },
+    };
+    version = 4;
+  }
+
   return version === DOCUMENT_VERSION ? document : null;
 }
 
@@ -334,11 +567,23 @@ export function parseDocument(brut: unknown): ParseResult {
     envelopes.push(enveloppe);
   }
 
+  const refunds = analyserListe(migre.refunds, analyserRemboursement);
+  if (!refunds) return { ok: false, reason: "invalidData" };
+
+  const banking = analyserEtatBancaire(migre.banking);
+  if (!banking) return { ok: false, reason: "invalidData" };
+
   // L'unicité des identifiants porte sur le document entier : aucune entité ne peut
-  // partager le sien avec une autre, quel qu'en soit le type.
-  const identifiants = [...incomes, ...subscriptions, ...expenses, ...envelopes].map(
-    (e) => e.id,
-  );
+  // partager le sien avec une autre, quel qu'en soit le type — règles comprises.
+  const identifiants = [
+    ...incomes,
+    ...subscriptions,
+    ...expenses,
+    ...envelopes,
+    ...refunds,
+    ...banking.rules,
+    ...banking.categoryRules,
+  ].map((e) => e.id);
   if (new Set(identifiants).size !== identifiants.length) {
     return { ok: false, reason: "invalidData" };
   }
@@ -349,8 +594,24 @@ export function parseDocument(brut: unknown): ParseResult {
     return { ok: false, reason: "invalidData" };
   }
 
+  // Une opération bancaire ne produit qu'une seule entité, dépense ou remboursement (EF-010).
+  const referencesBancaires = [...expenses, ...refunds].flatMap((e) =>
+    e.bankRef === undefined ? [] : [e.bankRef],
+  );
+  if (new Set(referencesBancaires).size !== referencesBancaires.length) {
+    return { ok: false, reason: "invalidData" };
+  }
+
   return {
     ok: true,
-    value: { version: DOCUMENT_VERSION, incomes, subscriptions, expenses, envelopes },
+    value: {
+      version: DOCUMENT_VERSION,
+      incomes,
+      subscriptions,
+      expenses,
+      envelopes,
+      refunds,
+      banking,
+    },
   };
 }

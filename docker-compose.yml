@@ -23,12 +23,32 @@ services:
       # Défini dans `.env`, jamais ici : ce fichier est versionné.
       BUDGET_ACCESS_TOKEN: ${BUDGET_ACCESS_TOKEN:?le jeton d_acces est obligatoire}
       BUDGET_DATA_DIR: /data
+      # Synchronisation bancaire (fonctionnalité 006). Facultative : sans identifiant ou sans
+      # URL de retour, elle est désactivée et le reste du budget fonctionne normalement.
+      ENABLE_BANKING_APP_ID: ${ENABLE_BANKING_APP_ID:-}
+      BANKING_REDIRECT_URL: ${BANKING_REDIRECT_URL:-}
+      ENABLE_BANKING_KEY_PATH: /run/secrets/enable-banking.pem
 
-    # Volume nommé, géré par Docker sur le disque local du serveur. À ne pas remplacer par un
-    # montage vers un partage SMB/NFS : l'écriture atomique du budget repose sur un `rename`
-    # dans le même système de fichiers, garantie qu'un partage réseau n'offre pas.
     volumes:
+      # Volume nommé, géré par Docker sur le disque local du serveur. À ne pas remplacer par un
+      # montage vers un partage SMB/NFS : l'écriture atomique du budget repose sur un `rename`
+      # dans le même système de fichiers, garantie qu'un partage réseau n'offre pas.
       - budget-data:/data
+
+      # Clé privée Enable Banking, montée **en lecture seule** et **hors** du volume
+      # `budget-data` : l'application, qui écrit dans ce volume, ne doit pas pouvoir modifier
+      # sa propre clé. Le fichier vit dans `data/` à la racine du projet, exclu de Git et du
+      # contexte de construction : il n'entre ni dans le dépôt, ni dans l'image.
+      #
+      # Syntaxe longue avec `create_host_path: false` : si le fichier manque, Docker refuse de
+      # démarrer avec un message clair, au lieu de créer silencieusement un **répertoire** à sa
+      # place. Sans synchronisation bancaire, retirez simplement ce montage.
+      - type: bind
+        source: ${ENABLE_BANKING_KEY_FILE:-./data/enable-banking.pem}
+        target: /run/secrets/enable-banking.pem
+        read_only: true
+        bind:
+          create_host_path: false
 
     # Le budget est peu volumineux et l'application ne fait aucun calcul lourd côté serveur.
     # Ces bornes évitent qu'un emballement ne gêne le reste du serveur.

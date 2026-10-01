@@ -14,6 +14,7 @@ import {
   withPause,
   withTermination,
 } from "@/features/budget/calculs";
+import { emptyDocument } from "@/features/budget/types";
 import type {
   BudgetDocument,
   Income,
@@ -309,7 +310,7 @@ function documentAvec(
   incomes: Income[],
   subscriptions: Subscription[],
 ): BudgetDocument {
-  return { version: 3, incomes, subscriptions, expenses: [], envelopes: [] };
+  return { ...emptyDocument(), incomes, subscriptions, expenses: [], envelopes: [] };
 }
 
 describe("computeMonthlyBudget", () => {

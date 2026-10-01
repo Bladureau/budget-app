@@ -54,6 +54,9 @@ npm run lint
 npm run build
 ```
 
+**Référence avant la fonctionnalité** (T001, 2026-10-01) : **542 tests au vert** dans 21 fichiers,
+`npm run lint` et `npm run build` sans erreur. Aucun de ces tests ne doit régresser.
+
 Doivent notamment passer :
 
 | Suite | Prouve |
