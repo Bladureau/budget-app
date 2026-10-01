@@ -12,11 +12,12 @@ import type { BankConnectionStatus } from "@/features/banking/types";
 import type { ClientFailure } from "@/features/banking/client";
 import {
   BANKING_NOT_CONFIGURED,
-  BANK_ERROR_MESSAGES,
   CALLBACK_MESSAGES,
   CLIENT_FAILURE_MESSAGES,
+  HISTORY_GAP,
   IMPORT_FROM_HELP,
 } from "@/features/banking/messages";
+import { bankDisplay } from "@/features/banking/bank-status";
 import { formatIsoDateFr } from "@/lib/format";
 import { isValidIsoDate, monthKeyOf, startOfMonth } from "@/lib/date";
 import type { BankSource } from "@/features/budget/types";
@@ -28,6 +29,44 @@ const formateurHorodatage = new Intl.DateTimeFormat("fr-FR", {
 
 function horodatage(iso: string): string {
   return formateurHorodatage.format(new Date(iso));
+}
+
+/**
+ * Instant de référence pour les échéances, tiré de la date du jour que tient le fournisseur.
+ *
+ * Plutôt qu'une lecture de l'horloge au rendu, qui rendrait l'affichage impur : le fournisseur
+ * met déjà `today` à jour quand la journée change. Midi local, pour qu'un décalage de fuseau
+ * ne fasse jamais basculer le jour. La précision au jour suffit à un seuil de 14 jours.
+ */
+function maintenantDuJour(today: string): Date {
+  return new Date(`${today}T12:00:00`);
+}
+
+/**
+ * Alertes bancaires visibles dès l'ouverture (EF-004, EF-005), en haut de la page : une
+ * autorisation qui expire ne doit jamais passer inaperçue plus d'une journée (CS-008).
+ */
+export function BankAlerts() {
+  const { bankStatus, today } = useBudget();
+  if (!bankStatus?.configured) return null;
+
+  const alertes = bankStatus.banks
+    .map((etat) => bankDisplay(etat, maintenantDuJour(today)))
+    .filter((affichage) => affichage.alert && affichage.message !== null);
+  if (alertes.length === 0) return null;
+
+  return (
+    <div role="status" className="space-y-1 rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-sm">
+      {alertes.map((affichage) => (
+        <p key={affichage.message} className="font-medium">
+          {affichage.message}{" "}
+          <a href="#titre-banques" className="underline">
+            Aller à « Mes banques »
+          </a>
+        </p>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -45,16 +84,17 @@ function messageDeRetour(): string | null {
 
 function LigneBanque({
   etat,
+  maintenant,
   peutRelier,
   onRelier,
 }: {
   etat: BankConnectionStatus;
+  maintenant: Date;
   peutRelier: boolean;
   onRelier: (bank: BankSource) => void;
 }) {
   const nom = BANK_LABELS[etat.bank];
-  const aReconnecter =
-    etat.lastError === "expired" || etat.lastError === "revoked" || etat.lastError === "noAccount";
+  const affichage = bankDisplay(etat, maintenant);
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 py-3">
@@ -72,8 +112,14 @@ function LigneBanque({
               ? `Dernière récupération réussie le ${horodatage(etat.lastFetchAt)}.`
               : "Reliée, aucune récupération pour l’instant."}
         </p>
-        {etat.lastError ? (
-          <p className="mt-1 font-medium">{BANK_ERROR_MESSAGES[etat.lastError]}</p>
+        {affichage.message ? <p className="mt-1 font-medium">{affichage.message}</p> : null}
+        {etat.connected && etat.validUntil && affichage.health === "ok" ? (
+          <p className="text-[var(--muted)]">
+            Accès valable jusqu’au {formatIsoDateFr(etat.validUntil.slice(0, 10))}.
+          </p>
+        ) : null}
+        {etat.historyGap ? (
+          <p className="mt-1 font-medium">{HISTORY_GAP}</p>
         ) : null}
         {etat.discardedCount > 0 ? (
           <p className="mt-1">
@@ -84,7 +130,7 @@ function LigneBanque({
         ) : null}
       </div>
 
-      {peutRelier && (!etat.connected || aReconnecter) ? (
+      {peutRelier && affichage.needsReconnect ? (
         <button
           type="button"
           className={buttonClassName}
@@ -195,6 +241,7 @@ export function BankPanel() {
                 <LigneBanque
                   key={etat.bank}
                   etat={etat}
+                  maintenant={maintenantDuJour(today)}
                   peutRelier={importFrom !== null}
                   onRelier={(bank) => void relier(bank)}
                 />

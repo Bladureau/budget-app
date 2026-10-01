@@ -8,7 +8,7 @@ import {
   findEnvelope,
 } from "@/features/budget/envelopes";
 import { emptyDocument } from "@/features/budget/types";
-import type { BudgetDocument, Envelope, Expense } from "@/features/budget/types";
+import type { BudgetDocument, Envelope, Expense, Refund } from "@/features/budget/types";
 
 function enveloppe(id: string, category: string, month: string, limitCents: number): Envelope {
   return { id, category, month, limitCents };
@@ -423,5 +423,86 @@ describe("copyEnvelopesToMonth", () => {
     copies[0].limitCents = 1;
     // L'original n'a pas bougé : la copie n'est pas une référence partagée.
     expect(source.find((e) => e.id === "a")?.limitCents).toBe(40000);
+  });
+});
+
+// --- Fonctionnalité 006, récit 4 : remboursements (EF-031, EF-032) ---------------------------
+
+describe("remboursements et enveloppes", () => {
+  function remboursement(id: string, amountCents: number, category: string | null): Refund {
+    return { id, amountCents, date: "2026-09-12", category, source: "lcl", bankRef: `lcl:${id}` };
+  }
+
+  function documentAvecRemboursements(
+    envelopes: Envelope[],
+    expenses: Expense[],
+    refunds: Refund[],
+  ): BudgetDocument {
+    return { ...documentAvec(envelopes, expenses), refunds };
+  }
+
+  it("réduit la consommation de l'enveloppe de la catégorie remboursée", () => {
+    const synthese = computeMonthlyEnvelopes(
+      documentAvecRemboursements(
+        [enveloppe("e1", "Restauration", "2026-09", 20000)],
+        [depense("d1", 5846, "2026-09-10", "Restauration")],
+        [remboursement("r1", 499, "Restauration")],
+      ),
+      "2026-09",
+    );
+    expect(synthese.envelopes[0].spentCents).toBe(5347);
+    expect(synthese.envelopes[0].remainingCents).toBe(20000 - 5347);
+  });
+
+  it("ne rend jamais la consommation d'une enveloppe négative", () => {
+    const synthese = computeMonthlyEnvelopes(
+      documentAvecRemboursements(
+        [enveloppe("e1", "Restauration", "2026-09", 0)],
+        [],
+        [remboursement("r1", 499, "Restauration")],
+      ),
+      "2026-09",
+    );
+    expect(synthese.envelopes[0]).toMatchObject({
+      spentCents: 0,
+      overspentCents: 0,
+      state: "unused",
+    });
+  });
+
+  it("déduit un remboursement sans catégorie du groupe « non budgété »", () => {
+    const synthese = computeMonthlyEnvelopes(
+      documentAvecRemboursements(
+        [enveloppe("e1", "Courses", "2026-09", 40000)],
+        [depense("d1", 2000, "2026-09-10", null), depense("d2", 1500, "2026-09-11", "Loisirs")],
+        [remboursement("r1", 500, null)],
+      ),
+      "2026-09",
+    );
+    expect(synthese.unbudgeted.totalCents).toBe(3000);
+    expect(synthese.unbudgeted.byCategory).toEqual([
+      { category: "Loisirs", totalCents: 1500 },
+      { category: null, totalCents: 1500 },
+    ]);
+  });
+
+  it("n'affiche pas une catégorie seulement remboursée dans « non budgété »", () => {
+    const synthese = computeMonthlyEnvelopes(
+      documentAvecRemboursements([], [], [remboursement("r1", 500, "Loisirs")]),
+      "2026-09",
+    );
+    expect(synthese.unbudgeted).toEqual({ totalCents: 0, byCategory: [] });
+  });
+
+  it("ignore un remboursement d'un autre mois", () => {
+    const synthese = computeMonthlyEnvelopes(
+      documentAvecRemboursements(
+        [enveloppe("e1", "Courses", "2026-09", 40000)],
+        [depense("d1", 2000, "2026-09-10", "Courses")],
+        [{ ...remboursement("r1", 500, "Courses"), date: "2026-10-01" }],
+      ),
+      "2026-09",
+    );
+    expect(synthese.envelopes[0].spentCents).toBe(2000);
   });
 });

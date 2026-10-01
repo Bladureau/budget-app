@@ -25,6 +25,7 @@ import type {
   Expense,
   MonthKey,
   MonthlyEnvelopes,
+  Refund,
   UnbudgetedGroup,
 } from "@/features/budget/types";
 
@@ -106,17 +107,28 @@ function depensesDuMois(expenses: readonly Expense[], month: MonthKey): Expense[
  */
 function regrouperNonBudgete(
   depenses: readonly Expense[],
+  remboursements: readonly Refund[],
   categoriesPlafonnees: ReadonlySet<string>,
 ): UnbudgetedGroup {
   const parCategorie = new Map<string | null, Cents>();
+  const horsEnveloppe = (category: string | null) =>
+    category === null || !categoriesPlafonnees.has(category);
 
   for (const depense of depenses) {
-    if (depense.category !== null && categoriesPlafonnees.has(depense.category)) continue;
+    if (!horsEnveloppe(depense.category)) continue;
     const cle = depense.category;
     parCategorie.set(cle, (parCategorie.get(cle) ?? 0) + depense.amountCents);
   }
+  // Fonctionnalité 006 : un remboursement réduit sa catégorie. Une catégorie seulement
+  // remboursée, ou entièrement remboursée, n'a rien coûté ce mois-ci : elle n'apparaît pas.
+  for (const remboursement of remboursements) {
+    if (!horsEnveloppe(remboursement.category)) continue;
+    const cle = remboursement.category;
+    parCategorie.set(cle, (parCategorie.get(cle) ?? 0) - remboursement.amountCents);
+  }
 
   const byCategory = [...parCategorie.entries()]
+    .filter(([, totalCents]) => totalCents > 0)
     .map(([category, totalCents]) => ({ category, totalCents }))
     .sort((a, b) => {
       if (b.totalCents !== a.totalCents) return b.totalCents - a.totalCents;
@@ -140,14 +152,22 @@ export function computeMonthlyEnvelopes(
 ): MonthlyEnvelopes {
   const enveloppes = envelopesForMonth(doc.envelopes, month);
   const depenses = depensesDuMois(doc.expenses, month);
+  const remboursements = doc.refunds.filter((r) => monthKeyOf(r.date) === month);
   const categoriesPlafonnees = new Set(enveloppes.map((e) => e.category));
 
   const statuts: EnvelopeStatus[] = enveloppes.map((enveloppe) => {
-    const spentCents = sumCents(
+    const brut = sumCents(
       depenses
         .filter((depense) => depense.category === enveloppe.category)
         .map((depense) => depense.amountCents),
     );
+    const rembourse = sumCents(
+      remboursements
+        .filter((r) => r.category === enveloppe.category)
+        .map((r) => r.amountCents),
+    );
+    // Consommation nette, jamais négative (EF-032) : un remboursement n'élargit pas le plafond.
+    const spentCents = Math.max(0, brut - rembourse);
     const remainingCents = enveloppe.limitCents - spentCents;
 
     return {
@@ -179,7 +199,7 @@ export function computeMonthlyEnvelopes(
     totalSpentBudgetedCents: sumCents(statuts.map((s) => s.spentCents)),
     totalRemainingCents:
       sumCents(statuts.map((s) => s.limitCents)) - sumCents(statuts.map((s) => s.spentCents)),
-    unbudgeted: regrouperNonBudgete(depenses, categoriesPlafonnees),
+    unbudgeted: regrouperNonBudgete(depenses, remboursements, categoriesPlafonnees),
     overBudgetCount: enDepassement.length,
     overBudgetTotalCents: sumCents(enDepassement.map((s) => s.overspentCents)),
   };

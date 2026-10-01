@@ -50,3 +50,7 @@ export const INBOX_REASON_MESSAGES: Readonly<Record<InboxReason, string>> = {
 };
 
 export const INVALID_PATTERN = "Le motif doit faire au moins 2 caractères.";
+
+/** R3 : le serveur est resté éteint plus de 90 jours. */
+export const HISTORY_GAP =
+  "Le serveur est resté éteint longtemps : la banque n’a peut-être pas rendu les opérations les plus anciennes. Vérifiez vos dépenses du début de la période et saisissez à la main celles qui manquent.";

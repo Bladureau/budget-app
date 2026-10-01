@@ -117,6 +117,17 @@ export function BudgetRing() {
               </div>
             </dl>
           )}
+
+          {/* Fonctionnalité 006 : le dépensé affiché est net des remboursements. On le dit,
+              pour que le chiffre ne paraisse pas contredire le journal (EF-031). */}
+          {bilan.refundedCents > 0 ? (
+            <p className="text-sm text-[var(--muted)]">
+              Remboursements déduits : {formatCents(bilan.refundedCents)}.
+              {bilan.refundSurplusCents > 0
+                ? ` Ils dépassent les dépenses du mois de ${formatCents(bilan.refundSurplusCents)}.`
+                : null}
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

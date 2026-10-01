@@ -74,6 +74,7 @@ class ServeurSimule {
   revision = 1;
   document: BudgetDocument;
   operations: BankOperation[] = OPERATIONS;
+  banques: Record<string, unknown>[] = BANQUES;
   budgetEnPanne = false;
   appels = { budget: 0, put: 0, operations: 0 };
 
@@ -95,11 +96,11 @@ class ServeurSimule {
 
   handler = async (url: string, options?: RequestInit): Promise<Response> => {
     if (url.startsWith("/api/banking/status")) {
-      return this.reponse(200, { configured: true, banks: BANQUES });
+      return this.reponse(200, { configured: true, banks: this.banques });
     }
     if (url.startsWith("/api/banking/operations")) {
       this.appels.operations += 1;
-      return this.reponse(200, { operations: this.operations, banks: BANQUES });
+      return this.reponse(200, { operations: this.operations, banks: this.banques });
     }
 
     if (this.budgetEnPanne) return this.reponse(500, { error: "storageUnreadable" });
@@ -203,6 +204,77 @@ describe("récit 2 — ne jamais compter deux fois", () => {
     // Les revenus ne bougent pas : la CAF reste saisie à part (EF-020).
     expect(serveur.document.incomes).toHaveLength(1);
     expect(serveur.document.banking.ledger.find((e) => e.ref === "lcl:avant")).toBeUndefined();
+  });
+});
+
+describe("récit 4 — les remboursements réduisent les dépenses", () => {
+  it("affiche le remboursement au journal et le déduit du dépensé du mois", async () => {
+    // Le mois affiché est le mois courant : les opérations sont datées d'aujourd'hui.
+    const aujourdHui = new Date();
+    const jour = `${aujourdHui.getFullYear()}-${String(aujourdHui.getMonth() + 1).padStart(2, "0")}-${String(aujourdHui.getDate()).padStart(2, "0")}`;
+    serveur.document = {
+      ...serveur.document,
+      incomes: [{ id: "salaire", label: "Salaire", amountCents: 150000, kind: "oneOff", date: `${jour.slice(0, 8)}01` }],
+      banking: { ...serveur.document.banking, importFrom: `${jour.slice(0, 8)}01` },
+    };
+    serveur.operations = [
+      operation("uber", { amountCents: 5846, label: "UBER *EATS", bookingDate: jour, paymentDate: jour }),
+      operation("twitch", {
+        amountCents: 499,
+        direction: "credit",
+        kind: "cardRefund",
+        label: "Twitch Interacti",
+        bookingDate: jour,
+        paymentDate: null,
+      }),
+    ];
+    await ouvrirAppareil();
+
+    await waitFor(() => expect(journal().getByText("Remboursement · Twitch Interacti")).toBeInTheDocument());
+    expect(journal().getByText("− 4,99 €")).toBeInTheDocument();
+    // Sous-total du jour : 58,46 − 4,99.
+    expect(journal().getAllByText("53,47 €").length).toBeGreaterThan(0);
+
+    const anneau = within(screen.getByRole("region", { name: /Reste à dépenser/ }));
+    expect(anneau.getByText("Remboursements déduits : 4,99 €.")).toBeInTheDocument();
+    expect(anneau.getByText("53,47 €")).toBeInTheDocument();
+  });
+});
+
+describe("récit 5 — garder l'accès dans la durée", () => {
+  const dans = (jours: number) => new Date(Date.now() + jours * 86_400_000).toISOString();
+
+  it("avertit dès l'ouverture d'un accès qui expire dans moins de 14 jours", async () => {
+    serveur.banques = [{ ...BANQUES[0], validUntil: dans(10) }, BANQUES[1]];
+    await ouvrirAppareil();
+
+    // Deux fois : en alerte en haut de page, et sur la ligne de la banque dans le panneau.
+    expect(await screen.findAllByText(/L’accès à LCL expire dans \d+ jours/)).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Aller à « Mes banques »" })).toHaveAttribute(
+      "href",
+      "#titre-banques",
+    );
+    expect(screen.getByRole("button", { name: "Reconnecter LCL" })).toBeInTheDocument();
+  });
+
+  it("signale un accès expiré avec la date de dernière récupération réussie", async () => {
+    serveur.banques = [{ ...BANQUES[0], validUntil: dans(-3), lastError: "expired" }, BANQUES[1]];
+    await ouvrirAppareil();
+
+    const messages = await screen.findAllByText(/L’accès à LCL a expiré le .*Dernière récupération réussie le/);
+    expect(messages.length).toBeGreaterThan(0);
+  });
+
+  it("n'affiche aucune alerte quand l'accès est valable plus de 14 jours", async () => {
+    await ouvrirAppareil();
+    await waitFor(() => expect(screen.getByText(/Accès valable jusqu’au/)).toBeInTheDocument());
+    expect(screen.queryByRole("link", { name: "Aller à « Mes banques »" })).not.toBeInTheDocument();
+  });
+
+  it("signale un trou d'historique possible", async () => {
+    serveur.banques = [{ ...BANQUES[0], historyGap: true }, BANQUES[1]];
+    await ouvrirAppareil();
+    expect(await screen.findByText(/n’a peut-être pas rendu les opérations les plus anciennes/)).toBeInTheDocument();
   });
 });
 

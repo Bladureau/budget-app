@@ -23,6 +23,7 @@ import type {
   JournalDay,
   MonthKey,
   MonthlySpending,
+  Refund,
   RingStatus,
 } from "@/features/budget/types";
 
@@ -73,6 +74,49 @@ export function spentBeforeDayCents(expenses: readonly Expense[], date: IsoDate)
   );
 }
 
+// --- Remboursements (fonctionnalité 006) ------------------------------------------------
+//
+// Un remboursement vient en **déduction** des dépenses (EF-031). Les fonctions ci-dessus
+// restent brutes — elles servent aussi au journal et à ses tests — et les calculs de l'anneau
+// et de l'allocation composent dépenses et remboursements à part.
+//
+// Règle unique, appliquée partout : le dépensé net est **borné à zéro** (EF-032). Un excédent
+// de remboursement est exposé tel quel, jamais présenté comme une dépense négative, et il
+// n'augmente pas le reste disponible : il n'a pas été prévu, il n'est pas promis.
+
+function rembourseDuMois(refunds: readonly Refund[], month: MonthKey): Cents {
+  return sumCents(
+    refunds.filter((r) => monthKeyOf(r.date) === month).map((r) => r.amountCents),
+  );
+}
+
+function rembourseLeJour(refunds: readonly Refund[], date: IsoDate): Cents {
+  return sumCents(refunds.filter((r) => r.date === date).map((r) => r.amountCents));
+}
+
+/** Même cantonnement au mois que `spentBeforeDayCents`. */
+function rembourseAvantLeJour(refunds: readonly Refund[], date: IsoDate): Cents {
+  const mois = monthKeyOf(date);
+  return sumCents(
+    refunds
+      .filter((r) => monthKeyOf(r.date) === mois && compareIso(r.date, date) < 0)
+      .map((r) => r.amountCents),
+  );
+}
+
+function net(depense: Cents, rembourse: Cents): Cents {
+  return Math.max(0, depense - rembourse);
+}
+
+/** Dépensé net du mois avant la date : c'est lui qui fixe ce qui reste à répartir. */
+function depenseNetAvant(doc: BudgetDocument, date: IsoDate): Cents {
+  return net(spentBeforeDayCents(doc.expenses, date), rembourseAvantLeJour(doc.refunds, date));
+}
+
+function depenseNetLeJour(doc: BudgetDocument, date: IsoDate): Cents {
+  return net(spentOnDayCents(doc.expenses, date), rembourseLeJour(doc.refunds, date));
+}
+
 // --- Anneau du reste mensuel ------------------------------------------------------------
 
 function etatAnneau(spent: Cents, remaining: Cents): RingStatus {
@@ -93,7 +137,9 @@ export function computeMonthlySpending(
   today: IsoDate,
 ): MonthlySpending {
   const availableCents = computeMonthlyBudget(doc, month, today).remainingCents;
-  const spentCents = totalSpentCentsForMonth(doc.expenses, month);
+  const brut = totalSpentCentsForMonth(doc.expenses, month);
+  const refundedCents = rembourseDuMois(doc.refunds, month);
+  const spentCents = net(brut, refundedCents);
   const remainingCents = availableCents - spentCents;
 
   // Plafonné à 1 pour que l'anneau ne déborde jamais ; 0 sans budget, ce qui évite aussi
@@ -105,6 +151,8 @@ export function computeMonthlySpending(
     month,
     availableCents,
     spentCents,
+    refundedCents,
+    refundSurplusCents: Math.max(0, refundedCents - brut),
     remainingCents,
     consumedRatio,
     // Exposé séparément pour que la vue n'ait jamais à présenter un reste négatif (EF-012).
@@ -132,12 +180,12 @@ export function computeDailyAllowance(doc: BudgetDocument, date: IsoDate): Daily
   const disponible = computeMonthlyBudget(doc, mois, date).remainingCents;
 
   const daysRemaining = daysInMonth(mois) - dayOfMonth(date) + 1;
-  const restant = disponible - spentBeforeDayCents(doc.expenses, date);
+  const restant = disponible - depenseNetAvant(doc, date);
 
   const allowanceCents =
     restant <= 0 || daysRemaining <= 0 ? 0 : Math.floor(restant / daysRemaining);
 
-  const spentTodayCents = spentOnDayCents(doc.expenses, date);
+  const spentTodayCents = depenseNetLeJour(doc, date);
 
   return {
     date,
@@ -164,32 +212,48 @@ function reportDeLaVeille(doc: BudgetDocument, date: IsoDate): Cents | null {
 
   const disponible = computeMonthlyBudget(doc, mois, veille).remainingCents;
   const joursRestantsVeille = daysInMonth(mois) - (quantieme - 1) + 1;
-  const restantVeille = disponible - spentBeforeDayCents(doc.expenses, veille);
+  const restantVeille = disponible - depenseNetAvant(doc, veille);
 
   const allocationVeille =
     restantVeille <= 0 ? 0 : Math.floor(restantVeille / joursRestantsVeille);
 
-  return allocationVeille - spentOnDayCents(doc.expenses, veille);
+  return allocationVeille - depenseNetLeJour(doc, veille);
 }
 
 // --- Journal -----------------------------------------------------------------------------
 
-/** Regroupe par journée avec sous-total, journées de la plus récente à la plus ancienne. */
-export function groupByDay(expenses: readonly Expense[]): JournalDay[] {
-  const parJour = new Map<IsoDate, Expense[]>();
+/**
+ * Regroupe par journée avec sous-total, journées de la plus récente à la plus ancienne.
+ *
+ * Les remboursements (fonctionnalité 006) rejoignent leur journée et viennent en déduction du
+ * sous-total, qui peut alors être négatif : le journal est un relevé, il montre ce qui s'est
+ * passé ce jour-là, sans la borne à zéro qui ne vaut que pour les budgets.
+ */
+export function groupByDay(
+  expenses: readonly Expense[],
+  refunds: readonly Refund[] = [],
+): JournalDay[] {
+  const parJour = new Map<IsoDate, { expenses: Expense[]; refunds: Refund[] }>();
+  const journee = (date: IsoDate) => {
+    const existante = parJour.get(date);
+    if (existante) return existante;
+    const nouvelle = { expenses: [] as Expense[], refunds: [] as Refund[] };
+    parJour.set(date, nouvelle);
+    return nouvelle;
+  };
 
-  for (const depense of expenses) {
-    const jour = parJour.get(depense.date);
-    if (jour) jour.push(depense);
-    else parJour.set(depense.date, [depense]);
-  }
+  for (const depense of expenses) journee(depense.date).expenses.push(depense);
+  for (const remboursement of refunds) journee(remboursement.date).refunds.push(remboursement);
 
   return [...parJour.entries()]
     .sort(([a], [b]) => compareIso(b, a))
-    .map(([date, liste]) => ({
+    .map(([date, contenu]) => ({
       date,
-      expenses: liste,
-      subtotalCents: sumCents(liste.map((depense) => depense.amountCents)),
+      expenses: contenu.expenses,
+      refunds: contenu.refunds,
+      subtotalCents:
+        sumCents(contenu.expenses.map((depense) => depense.amountCents)) -
+        sumCents(contenu.refunds.map((remboursement) => remboursement.amountCents)),
     }));
 }
 
@@ -207,8 +271,16 @@ export function normalizeForSearch(text: string): string {
     .toLocaleLowerCase("fr");
 }
 
-/** Filtre sur libellé et catégorie. Requête vide : liste inchangée. */
-export function searchExpenses(expenses: readonly Expense[], query: string): Expense[] {
+/**
+ * Filtre sur libellé et catégorie. Requête vide : liste inchangée.
+ *
+ * Générique pour servir aussi aux remboursements (fonctionnalité 006), qui portent libellé et
+ * catégorie de la même façon.
+ */
+export function searchExpenses<T extends Pick<Expense, "label" | "category">>(
+  expenses: readonly T[],
+  query: string,
+): T[] {
   const recherche = normalizeForSearch(query);
   if (recherche === "") return [...expenses];
 
