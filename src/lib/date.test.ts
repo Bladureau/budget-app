@@ -7,8 +7,26 @@ import {
   endOfMonth,
   isValidIsoDate,
   monthKeyOf,
+  monthsBetween,
   startOfMonth,
 } from "@/lib/date";
+
+describe("monthsBetween", () => {
+  it("vaut 0 pour le même mois et 1 pour le suivant", () => {
+    expect(monthsBetween("2026-10", "2026-10")).toBe(0);
+    expect(monthsBetween("2026-10", "2026-11")).toBe(1);
+  });
+
+  it("franchit un changement d'année", () => {
+    expect(monthsBetween("2026-12", "2027-01")).toBe(1);
+    expect(monthsBetween("2026-10", "2028-10")).toBe(24);
+  });
+
+  it("est négatif quand la cible précède l'origine", () => {
+    expect(monthsBetween("2026-10", "2026-09")).toBe(-1);
+    expect(monthsBetween("2027-01", "2026-12")).toBe(-1);
+  });
+});
 
 describe("isValidIsoDate", () => {
   it("accepte une date calendaire valide", () => {

@@ -19,6 +19,8 @@ import { ChargeBreakdown } from "@/features/budget/components/charge-breakdown";
 import { UpcomingDues } from "@/features/budget/components/upcoming-dues";
 import { ForecastView } from "@/features/budget/components/forecast-view";
 import { DataTransfer } from "@/features/budget/components/data-transfer";
+import { ReserveSettings } from "@/features/budget/components/reserve-settings";
+import { ReserveSummary } from "@/features/budget/components/reserve-summary";
 import { BankAlerts, BankPanel } from "@/features/banking/components/bank-panel";
 import { Inbox, InboxCount } from "@/features/banking/components/inbox";
 import { TABS } from "@/features/navigation/navigation";
@@ -147,6 +149,7 @@ export function BudgetView() {
 
             <Panneau tab="month" actif={tab}>
               <MonthSummary />
+              <ReserveSummary />
               <IncomeList />
               <SubscriptionList />
               <ChargeBreakdown />
@@ -155,6 +158,7 @@ export function BudgetView() {
             </Panneau>
 
             <Panneau tab="settings" actif={tab}>
+              <ReserveSettings />
               <BankPanel />
               <DataTransfer />
             </Panneau>

@@ -20,7 +20,7 @@ import type { BudgetDocument } from "@/features/budget/types";
 export const APPLICATION_MARKER = "budget-app";
 
 /** Version du format d’échange. Suit celle du document : les deux avancent ensemble. */
-export const FORMAT_VERSION = 4;
+export const FORMAT_VERSION = 5;
 
 export type ImportRefusal = "notAnExport" | "futureVersion" | "corrupted";
 
