@@ -2,7 +2,14 @@
 
 import { useBudget } from "@/features/budget/budget-provider";
 import { computeMonthlySpending } from "@/features/budget/expenses";
-import { NO_BUDGET_YET, RING_STATUS_LABELS } from "@/features/budget/messages";
+import {
+  NO_BUDGET_YET,
+  RESERVE_OVERSPEND_NOTE,
+  RESERVE_UNTOUCHED_NO_MARGIN,
+  RING_STATUS_LABELS,
+  reserveDrawnMessage,
+  reserveUntouchedMessage,
+} from "@/features/budget/messages";
 import type { RingStatus } from "@/features/budget/types";
 import { formatCents } from "@/lib/money";
 import { formatMonthFr } from "@/lib/format";
@@ -37,8 +44,30 @@ export function BudgetRing() {
   const { document, selectedMonth, today } = useBudget();
   const bilan = computeMonthlySpending(document, selectedMonth, today);
 
-  const sansBudget = bilan.availableCents <= 0 && bilan.spentCents === 0;
+  const reserve = bilan.reserve;
+
+  // Avec une réserve, on n'invite jamais à « renseigner ses revenus » : un disponible nul ou
+  // négatif vient alors de la réserve, et c'est son état qu'il faut montrer (008, FR-026).
+  const sansBudget = reserve === null && bilan.availableCents <= 0 && bilan.spentCents === 0;
   const enDepassement = bilan.status === "overspent";
+
+  // État de l'épargne, en toutes lettres (008, FR-016). Les revenus du mois sont toujours
+  // dépensés avant elle : on dit d'abord ce qu'il en reste, puis ce qui est entamé.
+  let etatEpargne: string | null = null;
+  if (reserve) {
+    if (enDepassement) {
+      etatEpargne = RESERVE_OVERSPEND_NOTE;
+    } else if (reserve.drawnCents > 0) {
+      etatEpargne = reserveDrawnMessage(
+        formatCents(reserve.drawnCents),
+        formatCents(reserve.shareCents),
+      );
+    } else if (reserve.openingCents > 0) {
+      const marge = bilan.incomeNetCents - bilan.spentCents;
+      etatEpargne =
+        marge > 0 ? reserveUntouchedMessage(formatCents(marge)) : RESERVE_UNTOUCHED_NO_MARGIN;
+    }
+  }
 
   // EF-012 : un dépassement s'affiche comme un montant de dépassement, jamais comme un reste
   // négatif brut.
@@ -114,15 +143,43 @@ export function BudgetRing() {
               <div>
                 <dt className="text-[var(--muted)]">Disponible ce mois</dt>
                 <dd className="font-semibold tabular-nums">
-                  {formatCents(bilan.availableCents)}
+                  {/* Avec une réserve en découvert, le disponible peut être négatif : on ne
+                      l'affiche pas brut, le découvert est détaillé juste en dessous (FR-018). */}
+                  {formatCents(reserve ? Math.max(0, bilan.availableCents) : bilan.availableCents)}
                 </dd>
               </div>
               <div>
                 <dt className="text-[var(--muted)]">Déjà dépensé</dt>
                 <dd className="font-semibold tabular-nums">{formatCents(bilan.spentCents)}</dd>
               </div>
+
+              {/* Fonctionnalité 008 : d'où vient le disponible. Rien de tout cela sans réserve. */}
+              {reserve ? (
+                <>
+                  <div>
+                    <dt className="text-[var(--muted)]">
+                      {bilan.incomeNetCents < 0 ? "Charges au-delà des revenus" : "Revenus du mois"}
+                    </dt>
+                    <dd className="font-semibold tabular-nums">
+                      {formatCents(Math.abs(bilan.incomeNetCents))}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[var(--muted)]">
+                      {reserve.shortfallCents > 0 ? "Découvert de la réserve" : "Part d’épargne"}
+                    </dt>
+                    <dd className="font-semibold tabular-nums">
+                      {formatCents(
+                        reserve.shortfallCents > 0 ? reserve.shortfallCents : reserve.shareCents,
+                      )}
+                    </dd>
+                  </div>
+                </>
+              ) : null}
             </dl>
           )}
+
+          {etatEpargne ? <p className="text-sm font-medium">{etatEpargne}</p> : null}
 
           {/* Fonctionnalité 006 : le dépensé affiché est net des remboursements. On le dit,
               pour que le chiffre ne paraisse pas contredire le journal (EF-031). */}

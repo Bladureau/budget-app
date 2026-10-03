@@ -43,7 +43,7 @@ export type ParseLimitResult =
  * de grandeur sous `Number.MAX_SAFE_INTEGER` exprimé en centimes, ce qui garantit que les
  * totalisations restent exactes même sur des milliers d’éléments.
  */
-const MAX_CENTS = 9_000_000_000;
+export const MAX_CENTS = 9_000_000_000;
 
 /** Espaces acceptés comme séparateurs de milliers, insécables compris. */
 const ESPACES = /[\s  ]/g;

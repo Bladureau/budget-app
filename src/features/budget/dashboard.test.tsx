@@ -312,6 +312,26 @@ describe("Tableau de bord — budget volumineux (CS-005)", () => {
     expect(duree).toBeLessThan(15000);
   }, 30000);
 
+  it("reste fluide avec une réserve d'épargne déclarée 24 mois plus tôt (fonctionnalité 008)", async () => {
+    // La réserve se recalcule à chaque rendu par une cascade sur tous les mois écoulés : ce
+    // test détecte un coût qui croîtrait avec le produit « mois × dépenses ».
+    const ilYADeuxAns = `${Number(aujourdHui().slice(0, 4)) - 2}-${aujourdHui().slice(5, 7)}`;
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...documentAvecBudget(cinqMilleDepenses()),
+        reserve: [{ fromMonth: ilYADeuxAns, kind: "open", balanceCents: 600000, months: 36 }],
+      }),
+    );
+
+    const debut = performance.now();
+    await monterVue();
+    const duree = performance.now() - debut;
+
+    expect(screen.getByText("Part d’épargne")).toBeInTheDocument();
+    expect(duree).toBeLessThan(15000);
+  }, 30000);
+
   it("reste capable d'enregistrer une dépense sur un budget de cette taille (CS-003)", async () => {
     localStorage.setItem(
       STORAGE_KEY,

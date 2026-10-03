@@ -40,6 +40,7 @@ import type {
   PausePeriod,
   Periodicity,
   Refund,
+  ReserveDeclaration,
   Subscription,
   TreatmentAction,
   TreatmentRule,
@@ -463,6 +464,51 @@ function analyserEnveloppe(brut: unknown): Envelope | null {
   };
 }
 
+// --- Réserve d'épargne (fonctionnalité 008) ----------------------------------------------
+
+const RESERVE_MAX_MONTHS = 120;
+
+function analyserDeclarationReserve(brut: unknown): ReserveDeclaration | null {
+  if (!estObjet(brut)) return null;
+  if (typeof brut.fromMonth !== "string" || !isValidMonthKey(brut.fromMonth)) return null;
+
+  if (brut.kind === "closed") return { fromMonth: brut.fromMonth, kind: "closed" };
+  if (brut.kind !== "open") return null;
+
+  // Comme le plafond d'une enveloppe, le solde admet zéro : une réserve vide est une intention
+  // explicite — « reporter le reste d'un mois sur l'autre » — et non une valeur manquante.
+  const solde = brut.balanceCents;
+  if (typeof solde !== "number" || !Number.isInteger(solde) || solde < 0 || solde > MAX_CENTS) {
+    return null;
+  }
+
+  const duree = brut.months;
+  if (
+    typeof duree !== "number" ||
+    !Number.isInteger(duree) ||
+    duree < 1 ||
+    duree > RESERVE_MAX_MONTHS
+  ) {
+    return null;
+  }
+
+  return { fromMonth: brut.fromMonth, kind: "open", balanceCents: solde, months: duree };
+}
+
+/**
+ * Les déclarations doivent être en ordre **strictement** croissant de mois : c'est ce qui
+ * garantit qu'il y en a au plus une par mois, donc que « la dernière déclaration applicable »
+ * est toujours définie sans ambiguïté.
+ */
+function analyserReserve(brut: unknown): ReserveDeclaration[] | null {
+  const declarations = analyserListe(brut, analyserDeclarationReserve);
+  if (!declarations) return null;
+  for (let i = 1; i < declarations.length; i += 1) {
+    if (compareIso(declarations[i - 1].fromMonth, declarations[i].fromMonth) >= 0) return null;
+  }
+  return declarations;
+}
+
 // --- Migrations -------------------------------------------------------------------------
 
 /**
@@ -509,6 +555,14 @@ function migrer(brut: Record<string, unknown>, depuis: number): Record<string, u
       },
     };
     version = 4;
+  }
+
+  // 4 → 5 : ajout de `reserve` (fonctionnalité 008), purement additif. Aucune réserve n'est
+  // déduite des données existantes : un revenu ponctuel qui représentait de l'épargne reste un
+  // revenu ponctuel, c'est à l'utilisateur de déclarer sa réserve.
+  if (version === 4) {
+    document = { ...document, version: 5, reserve: [] };
+    version = 5;
   }
 
   return version === DOCUMENT_VERSION ? document : null;
@@ -573,6 +627,9 @@ export function parseDocument(brut: unknown): ParseResult {
   const banking = analyserEtatBancaire(migre.banking);
   if (!banking) return { ok: false, reason: "invalidData" };
 
+  const reserve = analyserReserve(migre.reserve);
+  if (!reserve) return { ok: false, reason: "invalidData" };
+
   // L'unicité des identifiants porte sur le document entier : aucune entité ne peut
   // partager le sien avec une autre, quel qu'en soit le type — règles comprises.
   const identifiants = [
@@ -612,6 +669,7 @@ export function parseDocument(brut: unknown): ParseResult {
       envelopes,
       refunds,
       banking,
+      reserve,
     },
   };
 }

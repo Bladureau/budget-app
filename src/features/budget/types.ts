@@ -233,13 +233,42 @@ export interface Envelope {
   limitCents: Cents;
 }
 
+// --- Réserve d'épargne (fonctionnalité 008) ----------------------------------------------
+
+/**
+ * Une déclaration de la réserve d'épargne, datée du mois où elle prend effet.
+ *
+ * Seules les déclarations sont enregistrées : la réserve d'un mois se **recalcule** par une
+ * cascade partant de la dernière déclaration qui le précède (specs/008-savings-reserve,
+ * décision R1). Aucun solde mensuel n'est stocké — il serait faux à la première correction
+ * d'une dépense passée.
+ *
+ * C'est une liste et non une valeur unique (R2) : recaler ou retirer **ajoute** une déclaration
+ * pour le mois en cours, si bien que les mois antérieurs gardent leurs montants.
+ */
+export type ReserveDeclaration =
+  | {
+      fromMonth: MonthKey;
+      kind: "open";
+      /**
+       * Réserve **en début** du mois `fromMonth`. Entier `>= 0` ; zéro est valide (report simple
+       * d'un mois sur l'autre, sans épargne).
+       */
+      balanceCents: Cents;
+      /** Nombre de mois sur lesquels répartir la réserve, de 1 à 120. */
+      months: number;
+    }
+  /** Retrait : à partir de ce mois, plus de réserve ni de report. */
+  | { fromMonth: MonthKey; kind: "closed" };
+
 // --- Document persisté ---------------------------------------------------------------
 
 /**
- * Version 4 : ajout de `refunds` et `banking` (fonctionnalité 006, migration purement
- * additive). Version 3 : ajout de la collection `envelopes`.
+ * Version 5 : ajout de `reserve` (fonctionnalité 008). Version 4 : ajout de `refunds` et
+ * `banking` (fonctionnalité 006). Version 3 : ajout de la collection `envelopes`. Toutes ces
+ * migrations sont purement additives.
  */
-export const DOCUMENT_VERSION = 4;
+export const DOCUMENT_VERSION = 5;
 
 export interface BudgetDocument {
   version: number;
@@ -249,6 +278,8 @@ export interface BudgetDocument {
   envelopes: Envelope[];
   refunds: Refund[];
   banking: BankingState;
+  /** Triée par `fromMonth` strictement croissant : au plus une déclaration par mois. */
+  reserve: ReserveDeclaration[];
 }
 
 /**
@@ -275,6 +306,7 @@ export function emptyDocument(): BudgetDocument {
     envelopes: [],
     refunds: [],
     banking: emptyBankingState(),
+    reserve: [],
   };
 }
 
@@ -333,10 +365,43 @@ export interface UpcomingDue {
 
 // --- Entités dérivées de la fonctionnalité 003 ----------------------------------------
 
+/**
+ * La réserve d'épargne vue d'un mois (fonctionnalité 008). **Entièrement dérivée**, jamais
+ * persistée : recalculée par cascade depuis la dernière déclaration. Voir
+ * specs/008-savings-reserve/contracts/calcul-reserve.md.
+ */
+export interface ReserveState {
+  /** Réserve en début de mois. Peut être négative : dépassements cumulés supérieurs à l'épargne. */
+  openingCents: Cents;
+  /** Découvert à afficher, `max(0, −openingCents)` : la vue ne montre jamais un solde négatif. */
+  shortfallCents: Cents;
+  /** Mois sur lesquels la réserve doit encore durer, mois courant compris. Au moins 1. */
+  monthsRemaining: number;
+  /** La durée déclarée est écoulée. */
+  horizonReached: boolean;
+  /** Part du mois, tronquée au centime. Négative (toute la dette) si la réserve l'est. */
+  shareCents: Cents;
+  /** Épargne entamée ce mois : ce que le dépensé prend au-delà des revenus nets. */
+  drawnCents: Cents;
+  /**
+   * Réserve en fin de mois : ouverture + revenus nets − sorties nettes. Les sorties ne sont
+   * **pas** bornées à zéro ici, contrairement à `spentCents` : un excédent de remboursement
+   * entre dans la réserve au lieu de disparaître.
+   */
+  closingCents: Cents;
+}
+
 /** L'anneau du reste mensuel (EF-007 à EF-014). Jamais persisté. */
 export interface MonthlySpending {
   month: MonthKey;
-  /** Repris de `computeMonthlyBudget().remainingCents` : revenus moins charges engagées. */
+  /** Revenus moins charges engagées du mois : `computeMonthlyBudget().remainingCents`. */
+  incomeNetCents: Cents;
+  /** `null` si aucune réserve ne s'applique à ce mois. */
+  reserve: ReserveState | null;
+  /**
+   * Ce qui est dépensable ce mois : revenus nets, plus la part d'épargne s'il y a une réserve.
+   * Sans réserve, c'est exactement `incomeNetCents`.
+   */
   availableCents: Cents;
   /**
    * Dépensé **net** : dépenses moins remboursements du mois, jamais négatif (fonctionnalité

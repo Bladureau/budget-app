@@ -31,6 +31,9 @@ import type { ServerCode } from "@/features/budget/sync";
 import { addMonthsToKey, monthKeyOf } from "@/lib/date";
 import { copyEnvelopesToMonth, findEnvelope } from "@/features/budget/envelopes";
 import { emptyDocument } from "@/features/budget/types";
+import { openingBalanceFor } from "@/features/budget/expenses";
+import { withDeclaration, withoutReserve } from "@/features/budget/reserve";
+import { MAX_CENTS } from "@/lib/money";
 import {
   withAmountChange,
   withPause,
@@ -71,6 +74,9 @@ import type {
  * appelle un geste de l'utilisateur.
  */
 export type BankSyncState = "idle" | "syncing" | ClientFailure;
+
+/** Issue d'une déclaration de réserve : enregistrée, refusée, ou écriture impossible. */
+export type DeclareReserveOutcome = "ok" | "tooLarge" | "writeFailed";
 
 /**
  * Motif d’alerte présenté à l’utilisateur (voir contracts/interface.md).
@@ -173,6 +179,15 @@ interface BudgetContextValue {
     contains: string,
     subscriptionId: string | null,
   ) => boolean;
+
+  /**
+   * Réserve d'épargne (fonctionnalité 008). `balanceTodayCents` est le solde **du jour** : la
+   * réserve de début de mois enregistrée y ajoute l'épargne déjà entamée ce mois-ci (FR-002).
+   * `tooLarge` si le résultat dépasse le plafond des montants.
+   */
+  declareReserve: (balanceTodayCents: Cents, months: number) => DeclareReserveOutcome;
+  /** Retire la réserve à partir du mois en cours ; les mois passés gardent leurs montants. */
+  removeReserve: () => boolean;
 
   /** Renvoient `false` si l’opération viole un invariant du modèle. */
   changeSubscriptionAmount: (
@@ -804,6 +819,25 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     [appliquer],
   );
 
+  const declareReserve = useCallback(
+    (balanceTodayCents: Cents, months: number): DeclareReserveOutcome => {
+      const actuel = lireInstantaneClient();
+      const ouverture = openingBalanceFor(actuel, today, balanceTodayCents);
+      if (ouverture > MAX_CENTS) return "tooLarge";
+      const reserve = withDeclaration(actuel.reserve, monthKeyOf(today), ouverture, months);
+      return appliquer({ ...actuel, reserve }) ? "ok" : "writeFailed";
+    },
+    [appliquer, today],
+  );
+
+  const removeReserve = useCallback((): boolean => {
+    const actuel = lireInstantaneClient();
+    return appliquer({
+      ...actuel,
+      reserve: withoutReserve(actuel.reserve, monthKeyOf(today)),
+    });
+  }, [appliquer, today]);
+
   const connectBank = useCallback(async (bank: BankSource) => {
     const resultat = await startConnect(bank);
     if (!resultat.ok) return resultat.reason;
@@ -937,6 +971,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       bankStatus,
       bankSyncState,
       setImportFrom,
+      declareReserve,
+      removeReserve,
       connectBank,
       syncBanks: () => void synchroniserBanques(true),
       classifyInboxAsExpense,
@@ -978,6 +1014,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       bankStatus,
       bankSyncState,
       setImportFrom,
+      declareReserve,
+      removeReserve,
       connectBank,
       synchroniserBanques,
       classifyInboxAsExpense,

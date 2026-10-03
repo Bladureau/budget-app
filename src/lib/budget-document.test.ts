@@ -77,7 +77,9 @@ function documentV4(modifier: (doc: BudgetDocument) => void = () => {}): BudgetD
         bankRef: "lcl:c1",
       },
     ],
-    refunds: [remboursement],
+    // Clonés : `modifier` peut altérer ces entités, et les constantes partagées doivent rester
+    // intactes pour les tests suivants, quel que soit leur ordre.
+    refunds: [structuredClone(remboursement)],
     banking: {
       ...emptyBankingState(),
       importFrom: "2026-10-01",
@@ -92,7 +94,7 @@ function documentV4(modifier: (doc: BudgetDocument) => void = () => {}): BudgetD
           mergedRefs: ["revolut:a1"],
         },
       ],
-      inbox: [elementAClasser],
+      inbox: [structuredClone(elementAClasser)],
     },
   };
   modifier(doc);
@@ -318,5 +320,133 @@ describe("invariants du document v4", () => {
         d.banking.importFrom = "2026-02-30";
       }),
     );
+  });
+});
+
+// --- Fonctionnalité 008 : migration 4 → 5 et réserve d'épargne ------------------------------
+
+/** Document v5 portant une ouverture, un recalage et un retrait. */
+function documentV5(reserve: unknown): Record<string, unknown> {
+  return { ...structuredClone(documentV4()), version: 5, reserve };
+}
+
+describe("migration 4 → 5", () => {
+  it("ajoute une réserve vide et reprend tout le reste à l'identique", () => {
+    const v4: Record<string, unknown> = { ...structuredClone(documentV4()), version: 4 };
+    delete v4.reserve;
+
+    const resultat = parseDocument(structuredClone(v4));
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+    expect(resultat.value).toEqual({ ...v4, version: DOCUMENT_VERSION, reserve: [] });
+  });
+
+  it("ne déduit aucune réserve d'un revenu ponctuel existant", () => {
+    const resultat = parseDocument({
+      version: 4,
+      incomes: [
+        { id: "epargne", label: "Épargne", amountCents: 600000, kind: "oneOff", date: "2026-09-01" },
+      ],
+      subscriptions: [],
+      expenses: [],
+      envelopes: [],
+      refunds: [],
+      banking: emptyBankingState(),
+    });
+    if (!resultat.ok) throw new Error("document refusé");
+    expect(resultat.value.reserve).toEqual([]);
+    expect(resultat.value.incomes).toHaveLength(1);
+  });
+
+  it("traverse les migrations 3 → 4 → 5", () => {
+    const resultat = parseDocument(documentV3());
+    if (!resultat.ok) throw new Error("document refusé");
+    expect(resultat.value.version).toBe(5);
+    expect(resultat.value.reserve).toEqual([]);
+  });
+});
+
+describe("réserve d'épargne du document v5", () => {
+  const ouverture = { fromMonth: "2026-10", kind: "open", balanceCents: 600000, months: 12 };
+
+  it("restitue une ouverture, un recalage et un retrait", () => {
+    const reserve = [
+      ouverture,
+      { fromMonth: "2026-12", kind: "open", balanceCents: 300000, months: 6 },
+      { fromMonth: "2027-02", kind: "closed" },
+    ];
+    const resultat = parseDocument(documentV5(reserve));
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.value.reserve).toEqual(reserve);
+  });
+
+  it("accepte un solde de zéro et le plus grand montant", () => {
+    for (const balanceCents of [0, 9_000_000_000]) {
+      const resultat = parseDocument(documentV5([{ ...ouverture, balanceCents }]));
+      expect(resultat.ok).toBe(true);
+    }
+  });
+
+  it("accepte les durées limites, 1 et 120 mois", () => {
+    for (const months of [1, 120]) {
+      expect(parseDocument(documentV5([{ ...ouverture, months }])).ok).toBe(true);
+    }
+  });
+
+  it("ne garde aucun champ étranger d'une déclaration", () => {
+    const resultat = parseDocument(documentV5([{ ...ouverture, champEtranger: "x" }]));
+    if (!resultat.ok) throw new Error("document refusé");
+    expect(resultat.value.reserve[0]).toEqual(ouverture);
+  });
+
+  it("refuse un champ `reserve` absent ou qui n'est pas un tableau", () => {
+    const sansReserve = documentV5([]);
+    delete sansReserve.reserve;
+    refuse(sansReserve);
+    refuse(documentV5(null));
+    refuse(documentV5({}));
+  });
+
+  it("refuse un élément qui n'est pas un objet", () => {
+    refuse(documentV5([42]));
+    refuse(documentV5([null]));
+  });
+
+  it("refuse un mois d'effet invalide", () => {
+    refuse(documentV5([{ ...ouverture, fromMonth: "2026-13" }]));
+    refuse(documentV5([{ ...ouverture, fromMonth: "2026-10-01" }]));
+    refuse(documentV5([{ ...ouverture, fromMonth: 202610 }]));
+  });
+
+  it("refuse une nature inconnue", () => {
+    refuse(documentV5([{ ...ouverture, kind: "paused" }]));
+    refuse(documentV5([{ fromMonth: "2026-10" }]));
+  });
+
+  it("refuse un solde non entier, négatif, trop grand ou non numérique", () => {
+    for (const balanceCents of [12.5, -1, 9_000_000_001, "600000", null, Number.NaN]) {
+      refuse(documentV5([{ ...ouverture, balanceCents }]));
+    }
+  });
+
+  it("refuse une durée non entière, nulle, trop longue ou non numérique", () => {
+    for (const months of [0, 1.5, 121, -3, "12", null]) {
+      refuse(documentV5([{ ...ouverture, months }]));
+    }
+  });
+
+  it("refuse deux déclarations pour le même mois", () => {
+    refuse(documentV5([ouverture, { fromMonth: "2026-10", kind: "closed" }]));
+  });
+
+  it("refuse des déclarations dans le désordre", () => {
+    refuse(documentV5([{ ...ouverture, fromMonth: "2026-11" }, ouverture]));
+  });
+
+  it("refuse une version postérieure sans y toucher", () => {
+    expect(parseDocument({ ...documentV5([]), version: 6 })).toEqual({
+      ok: false,
+      reason: "futureVersion",
+    });
   });
 });

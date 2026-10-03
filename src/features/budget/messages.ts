@@ -131,6 +131,65 @@ export const LIMIT_ERROR_MESSAGES: Readonly<Record<LimitError, string>> = {
   tooLarge: "Le plafond est trop élevé.",
 };
 
+// --- Réserve d'épargne (fonctionnalité 008) --------------------------------------------
+
+import type { MonthsError } from "@/features/budget/reserve";
+
+/** Refus du solde. Comme pour un plafond, zéro est accepté : le message ne doit pas l'exclure. */
+export const RESERVE_BALANCE_ERROR_MESSAGES: Readonly<Record<LimitError, string>> = {
+  empty: "Saisissez le solde de votre épargne.",
+  notANumber: "Le solde doit être un nombre, par exemple 6000 ou 5250,50.",
+  tooManyDecimals: "Le solde ne peut pas comporter plus de deux décimales.",
+  negative: "Le solde ne peut pas être négatif. Zéro est accepté.",
+  tooLarge: "Le solde est trop élevé.",
+};
+
+export const RESERVE_MONTHS_ERROR_MESSAGES: Readonly<Record<MonthsError, string>> = {
+  empty: "Saisissez un nombre de mois.",
+  notAnInteger: "Le nombre de mois doit être un nombre entier, par exemple 12.",
+  outOfRange: "Le nombre de mois doit être compris entre 1 et 120.",
+};
+
+export const RESERVE_WRITE_FAILED =
+  "La réserve n’a pas pu être enregistrée. Rien n’a été modifié.";
+
+export const RESERVE_EXPLANATION =
+  "Déclarez l’épargne sur laquelle vous vivez : elle est répartie sur le nombre de mois choisi et s’ajoute chaque mois à vos revenus. Ce que vous ne dépensez pas un mois reste disponible les mois suivants.";
+
+export const RESERVE_BALANCE_HELP =
+  "Saisissez le solde réel de votre épargne aujourd’hui. Vos revenus du mois sont toujours dépensés avant elle.";
+
+export const RESERVE_UPDATE_HELP =
+  "Saisissez le solde réel de votre épargne aujourd’hui. Le mois en cours repartira de ce solde ; les mois passés ne changent pas.";
+
+/** FR-004 : l'épargne a pu être saisie comme revenu ponctuel, faute de mieux. */
+export const RESERVE_ONE_OFF_REMINDER =
+  "Ce mois-ci comporte un revenu ponctuel. Vérifiez que votre épargne n’y est pas déjà comptée, pour ne pas la compter deux fois.";
+
+export const RESERVE_REMOVE_CONFIRM =
+  "Retirer la réserve ? À partir de ce mois, le budget ne comptera plus que vos revenus, sans report d’un mois sur l’autre. Les mois passés gardent leurs montants.";
+
+export const RESERVE_HORIZON_REACHED =
+  "La durée prévue pour votre réserve est atteinte : tout ce qu’il en reste est désormais disponible chaque mois.";
+
+export const RESERVE_OVERSPEND_NOTE = "Ce dépassement sera retiré de la réserve.";
+
+/** États de l'épargne dans l'anneau (FR-016). Les montants arrivent déjà formatés. */
+export function reserveUntouchedMessage(incomeLeft: string): string {
+  return `Épargne non entamée — encore ${incomeLeft} de revenus avant d’y toucher.`;
+}
+
+export const RESERVE_UNTOUCHED_NO_MARGIN = "Épargne non entamée.";
+
+export function reserveDrawnMessage(drawn: string, share: string): string {
+  return `Épargne entamée : ${drawn} sur ${share}.`;
+}
+
+/** Réserve négative : jamais de montant négatif brut (FR-018). */
+export function reserveShortfallMessage(shortfall: string): string {
+  return `Réserve épuisée — découvert de ${shortfall}`;
+}
+
 // --- Synchronisation avec le stockage central (fonctionnalité 005) ---------------------
 
 import type { SyncState } from "@/features/budget/types";

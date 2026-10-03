@@ -659,11 +659,66 @@ describe("aller-retour avec des données bancaires (fonctionnalité 006)", () =>
     expect(importe.document.banking.rules.length).toBeGreaterThan(0);
   });
 
-  it("refuse un export de format 5", () => {
+  it("refuse un export d'un format postérieur", () => {
     const resultat = parseImport(
-      fichierValide({ formatVersion: FORMAT_VERSION + 1, data: { ...avecBanque, version: 5 } }),
+      fichierValide({
+        formatVersion: FORMAT_VERSION + 1,
+        data: { ...avecBanque, version: DOCUMENT_VERSION + 1 },
+      }),
     );
     expect(resultat.ok).toBe(false);
     if (!resultat.ok) expect(resultat.reason).toBe("futureVersion");
+  });
+});
+
+// --- Fonctionnalité 008 : document v5 et réserve d'épargne (FR-024, FR-025) -----------------
+
+describe("aller-retour avec une réserve d'épargne (fonctionnalité 008)", () => {
+  const avecReserve: BudgetDocument = {
+    ...emptyDocument(),
+    incomes: [salaire],
+    reserve: [
+      { fromMonth: "2026-10", kind: "open", balanceCents: 600000, months: 12 },
+      { fromMonth: "2026-12", kind: "open", balanceCents: 300000, months: 6 },
+      { fromMonth: "2027-02", kind: "closed" },
+    ],
+  };
+
+  it("exporte au format 5", () => {
+    const enveloppe = JSON.parse(serializeExport(avecReserve, DATE_EXPORT));
+    expect(enveloppe.formatVersion).toBe(5);
+    expect(enveloppe.data.version).toBe(5);
+  });
+
+  it("restitue les déclarations à l'identique, au centime", () => {
+    const importe = parseImport(serializeExport(avecReserve, DATE_EXPORT));
+    expect(importe.ok).toBe(true);
+    if (importe.ok) expect(importe.document).toEqual(avecReserve);
+  });
+
+  it("réimporte un export de format 4, sans réserve", () => {
+    const documentV4: Record<string, unknown> = { ...avecReserve, version: 4 };
+    delete documentV4.reserve;
+    const exportV4 = JSON.stringify({
+      application: APPLICATION_MARKER,
+      formatVersion: 4,
+      exportedAt: DATE_EXPORT.toISOString(),
+      data: documentV4,
+    });
+
+    const importe = parseImport(exportV4);
+    expect(importe.ok).toBe(true);
+    if (!importe.ok) return;
+    expect(importe.document.version).toBe(DOCUMENT_VERSION);
+    expect(importe.document.reserve).toEqual([]);
+    expect(importe.document.incomes).toEqual([salaire]);
+  });
+
+  it("refuse un export dont une déclaration est malformée, sans rien restituer", () => {
+    const abime = JSON.parse(serializeExport(avecReserve, DATE_EXPORT));
+    abime.data.reserve[0].balanceCents = 12.5;
+    const resultat = parseImport(JSON.stringify(abime));
+    expect(resultat.ok).toBe(false);
+    if (!resultat.ok) expect(resultat.reason).toBe("corrupted");
   });
 });

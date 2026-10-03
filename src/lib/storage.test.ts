@@ -608,8 +608,8 @@ describe("Migration 2 → 3", () => {
   });
 
   it("migre un document en version 3 sans toucher à son contenu", () => {
-    // Depuis la fonctionnalité 006, la version 3 n'est plus la version courante : elle ne
-    // reçoit que les deux ajouts de la migration 3 → 4, tout le reste est repris à l'identique.
+    // La version 3 n'est plus la version courante : elle ne reçoit que les ajouts des
+    // migrations 3 → 4 (006) et 4 → 5 (008), tout le reste est repris à l'identique.
     const v3 = { ...structuredClone(documentV2), version: 3, envelopes: [] };
     const resultat = parseDocument(v3);
     expect(resultat.ok).toBe(true);
@@ -619,6 +619,7 @@ describe("Migration 2 → 3", () => {
         version: DOCUMENT_VERSION,
         refunds: [],
         banking: emptyBankingState(),
+        reserve: [],
       });
     }
   });

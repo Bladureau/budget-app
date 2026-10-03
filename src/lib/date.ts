@@ -92,6 +92,12 @@ export function addMonthsToKey(month: MonthKey, months: number): MonthKey {
   return monthKeyOf(addMonthsClamped(startOfMonth(month), months));
 }
 
+/** Nombre de mois de `from` à `to` ; négatif si `to` précède `from`. Arithmétique entière. */
+export function monthsBetween(from: MonthKey, to: MonthKey): number {
+  const index = (mois: MonthKey) => Number(mois.slice(0, 4)) * 12 + Number(mois.slice(5, 7));
+  return index(to) - index(from);
+}
+
 /** Comparaison chronologique, qui coïncide avec l’ordre lexicographique de ce format. */
 export function compareIso(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;

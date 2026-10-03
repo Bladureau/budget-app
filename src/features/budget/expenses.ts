@@ -11,9 +11,15 @@
  * abonnements, budget prévisionnel), celui-là répond « où en suis-je aujourd'hui ? ».
  */
 
-import { compareIso, dayOfMonth, daysInMonth, monthKeyOf } from "@/lib/date";
+import { addMonthsToKey, compareIso, dayOfMonth, daysInMonth, monthKeyOf } from "@/lib/date";
 import { sumCents } from "@/lib/money";
 import { computeMonthlyBudget } from "@/features/budget/calculs";
+import {
+  activeDeclaration,
+  horizonReached,
+  monthsRemaining,
+  shareCents,
+} from "@/features/budget/reserve";
 import type {
   BudgetDocument,
   Cents,
@@ -24,6 +30,7 @@ import type {
   MonthKey,
   MonthlySpending,
   Refund,
+  ReserveState,
   RingStatus,
 } from "@/features/budget/types";
 
@@ -117,6 +124,109 @@ function depenseNetLeJour(doc: BudgetDocument, date: IsoDate): Cents {
   return net(spentOnDayCents(doc.expenses, date), rembourseLeJour(doc.refunds, date));
 }
 
+// --- Réserve d'épargne (fonctionnalité 008) ----------------------------------------------
+//
+// Voir specs/008-savings-reserve/contracts/calcul-reserve.md. Rien n'est stocké d'un mois sur
+// l'autre : la réserve d'un mois se recalcule depuis la dernière déclaration, en ajoutant pour
+// chaque mois écoulé ses revenus nets et en retirant ses sorties.
+
+/**
+ * Sorties nettes de chaque mois : dépenses moins remboursements, **sans borne à zéro**.
+ *
+ * C'est la différence avec `net()` ci-dessus, et elle est voulue. Le dépensé affiché d'un mois
+ * est borné (un excédent de remboursement n'augmente pas le disponible du mois), mais cet
+ * excédent est de l'argent réel : il doit entrer dans la réserve, pas disparaître (FR-010).
+ *
+ * Une seule passe sur les dépenses, quel que soit le nombre de mois de la cascade.
+ */
+function sortiesNettesParMois(doc: BudgetDocument): Map<MonthKey, Cents> {
+  const parMois = new Map<MonthKey, Cents>();
+  for (const depense of doc.expenses) {
+    const mois = monthKeyOf(depense.date);
+    parMois.set(mois, (parMois.get(mois) ?? 0) + depense.amountCents);
+  }
+  for (const remboursement of doc.refunds) {
+    const mois = monthKeyOf(remboursement.date);
+    parMois.set(mois, (parMois.get(mois) ?? 0) - remboursement.amountCents);
+  }
+  return parMois;
+}
+
+/**
+ * État de la réserve pour un mois, ou `null` si aucune réserve ne s'y applique : aucune
+ * déclaration, mois antérieur à la première, ou réserve retirée.
+ */
+export function computeReserveState(
+  doc: BudgetDocument,
+  month: MonthKey,
+  today: IsoDate,
+): ReserveState | null {
+  const declaration = activeDeclaration(doc.reserve, month);
+  if (declaration === null || declaration.kind === "closed") return null;
+
+  const sorties = sortiesNettesParMois(doc);
+  const revenusNets = (mois: MonthKey) => computeMonthlyBudget(doc, mois, today).remainingCents;
+
+  // La part ne figure pas dans la récurrence : une part non dépensée reste dans la réserve
+  // d'elle-même, puisque seules les sorties réelles la font baisser.
+  let openingCents = declaration.balanceCents;
+  for (
+    let mois = declaration.fromMonth;
+    compareIso(mois, month) < 0;
+    mois = addMonthsToKey(mois, 1)
+  ) {
+    openingCents += revenusNets(mois) - (sorties.get(mois) ?? 0);
+  }
+
+  const net = revenusNets(month);
+  const sortiesDuMois = sorties.get(month) ?? 0;
+  const restants = monthsRemaining(declaration, month);
+
+  return {
+    openingCents,
+    shortfallCents: Math.max(0, -openingCents),
+    monthsRemaining: restants,
+    horizonReached: horizonReached(declaration, month),
+    shareCents: shareCents(openingCents, restants),
+    // Dépensé borné, comme l'anneau : on n'« entame » pas l'épargne avec un remboursement.
+    drawnCents: Math.max(0, Math.max(0, sortiesDuMois) - net),
+    closingCents: openingCents + net - sortiesDuMois,
+  };
+}
+
+/**
+ * Ce qui est dépensable sur un mois : revenus nets, plus la part d'épargne s'il y a une
+ * réserve. **Seul point de lecture du disponible** pour l'anneau, l'allocation du jour et le
+ * report de la veille.
+ */
+export function availableCentsForMonth(doc: BudgetDocument, month: MonthKey, today: IsoDate): Cents {
+  const net = computeMonthlyBudget(doc, month, today).remainingCents;
+  return net + (computeReserveState(doc, month, today)?.shareCents ?? 0);
+}
+
+/**
+ * Réserve de **début** du mois courant à enregistrer pour un solde saisi **aujourd'hui**
+ * (FR-002).
+ *
+ * La déclaration porte la réserve de début de mois. Si l'utilisateur saisit son solde réel
+ * après avoir déjà puisé dans son épargne ce mois-ci, enregistrer ce solde tel quel ferait
+ * retirer une seconde fois, en fin de mois, ce qui a déjà été puisé. On rajoute donc l'épargne
+ * déjà entamée : la fin de mois retombe alors sur le solde saisi.
+ *
+ * Le raisonnement est au mois entier : les revenus nets du mois sont tenus pour acquis dès le
+ * premier jour.
+ */
+export function openingBalanceFor(
+  doc: BudgetDocument,
+  today: IsoDate,
+  balanceTodayCents: Cents,
+): Cents {
+  const mois = monthKeyOf(today);
+  const net = computeMonthlyBudget(doc, mois, today).remainingCents;
+  const sortiesDuMois = sortiesNettesParMois(doc).get(mois) ?? 0;
+  return balanceTodayCents + Math.max(0, sortiesDuMois - net);
+}
+
 // --- Anneau du reste mensuel ------------------------------------------------------------
 
 function etatAnneau(spent: Cents, remaining: Cents): RingStatus {
@@ -128,15 +238,19 @@ function etatAnneau(spent: Cents, remaining: Cents): RingStatus {
 /**
  * Reste mensuel et état de l'anneau (EF-007 à EF-014).
  *
- * `availableCents` provient du budget prévisionnel de la fonctionnalité 002 : revenus moins
- * charges récurrentes engagées. Les dépenses viennent s'imputer dessus.
+ * `incomeNetCents` provient du budget prévisionnel de la fonctionnalité 002 : revenus moins
+ * charges récurrentes engagées. `availableCents` y ajoute la part d'épargne du mois lorsqu'une
+ * réserve existe (fonctionnalité 008) ; sans réserve, les deux sont égaux. Les dépenses
+ * viennent s'imputer sur le disponible.
  */
 export function computeMonthlySpending(
   doc: BudgetDocument,
   month: MonthKey,
   today: IsoDate,
 ): MonthlySpending {
-  const availableCents = computeMonthlyBudget(doc, month, today).remainingCents;
+  const incomeNetCents = computeMonthlyBudget(doc, month, today).remainingCents;
+  const reserve = computeReserveState(doc, month, today);
+  const availableCents = incomeNetCents + (reserve?.shareCents ?? 0);
   const brut = totalSpentCentsForMonth(doc.expenses, month);
   const refundedCents = rembourseDuMois(doc.refunds, month);
   const spentCents = net(brut, refundedCents);
@@ -149,6 +263,8 @@ export function computeMonthlySpending(
 
   return {
     month,
+    incomeNetCents,
+    reserve,
     availableCents,
     spentCents,
     refundedCents,
@@ -177,7 +293,7 @@ export function computeMonthlySpending(
  */
 export function computeDailyAllowance(doc: BudgetDocument, date: IsoDate): DailyAllowance {
   const mois = monthKeyOf(date);
-  const disponible = computeMonthlyBudget(doc, mois, date).remainingCents;
+  const disponible = availableCentsForMonth(doc, mois, date);
 
   const daysRemaining = daysInMonth(mois) - dayOfMonth(date) + 1;
   const restant = disponible - depenseNetAvant(doc, date);
@@ -210,7 +326,7 @@ function reportDeLaVeille(doc: BudgetDocument, date: IsoDate): Cents | null {
   const mois = monthKeyOf(date);
   const veille = `${mois}-${String(quantieme - 1).padStart(2, "0")}`;
 
-  const disponible = computeMonthlyBudget(doc, mois, veille).remainingCents;
+  const disponible = availableCentsForMonth(doc, mois, veille);
   const joursRestantsVeille = daysInMonth(mois) - (quantieme - 1) + 1;
   const restantVeille = disponible - depenseNetAvant(doc, veille);
 
