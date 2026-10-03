@@ -14,6 +14,12 @@ import {
   EXPENSE_DELETE_CONFIRM,
   LABEL_TOO_LONG,
 } from "@/features/budget/messages";
+import {
+  CATEGORY_RULE_HELP,
+  CATEGORY_RULE_NEEDS_CATEGORY,
+  RULE_EDIT_ERROR_MESSAGES,
+  categoryRuleCreated,
+} from "@/features/banking/messages";
 import type { Expense } from "@/features/budget/types";
 import { isValidIsoDate } from "@/lib/date";
 import { centsToInputValue, parseAmountInput } from "@/lib/money";
@@ -38,7 +44,7 @@ export function ExpenseDetail({
   expense: Expense;
   onDone: () => void;
 }) {
-  const { updateExpense, removeExpense } = useBudget();
+  const { updateExpense, removeExpense, addCategoryRule } = useBudget();
   const prefixe = useId();
 
   const [montant, setMontant] = useState(centsToInputValue(expense.amountCents));
@@ -47,6 +53,34 @@ export function ExpenseDetail({
   const [date, setDate] = useState(expense.date);
   const [erreurs, setErreurs] = useState<Erreurs>({});
   const [confirmationSuppression, setConfirmationSuppression] = useState(false);
+
+  // « Appliquer à ce commerçant » (fonctionnalité 006, récit 6) : réservé aux dépenses
+  // importées, les seules dont le libellé vient de la banque et reviendra tel quel.
+  const importee = expense.source !== undefined;
+  const [regleOuverte, setRegleOuverte] = useState(false);
+  const [motif, setMotif] = useState(expense.label ?? "");
+  const [erreurRegle, setErreurRegle] = useState<string | undefined>(undefined);
+  const [regleCreee, setRegleCreee] = useState<string | null>(null);
+
+  /**
+   * Crée la règle avec la catégorie **telle qu'elle est saisie**, enregistrée ou non : la
+   * règle et la correction de cette dépense sont deux gestes indépendants.
+   */
+  function creerRegle() {
+    const categorieSaisie = categorie.trim();
+    if (categorieSaisie === "") {
+      setErreurRegle(CATEGORY_RULE_NEEDS_CATEGORY);
+      return;
+    }
+    const refus = addCategoryRule(motif, categorieSaisie);
+    if (refus !== null) {
+      setErreurRegle(RULE_EDIT_ERROR_MESSAGES[refus]);
+      return;
+    }
+    setErreurRegle(undefined);
+    setRegleOuverte(false);
+    setRegleCreee(categoryRuleCreated(motif.trim(), categorieSaisie));
+  }
 
   function soumettre(evenement: React.FormEvent) {
     evenement.preventDefault();
@@ -129,6 +163,66 @@ export function ExpenseDetail({
           )}
         </FormField>
       </div>
+
+      {importee ? (
+        <div className="space-y-2 rounded-md border border-[var(--border)] p-3 text-sm">
+          {regleOuverte ? (
+            <>
+              <FormField
+                id={`${prefixe}-motif`}
+                label="Pour les opérations dont le libellé contient"
+                error={erreurRegle}
+              >
+                {(props) => (
+                  <input
+                    {...props}
+                    type="text"
+                    autoComplete="off"
+                    className={inputClassName}
+                    value={motif}
+                    onChange={(e) => setMotif(e.target.value)}
+                    // Entrée crée la règle : sans cela, elle validerait le formulaire de la
+                    // dépense, qui se refermerait sans avoir créé la règle.
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      creerRegle();
+                    }}
+                  />
+                )}
+              </FormField>
+              <p className="text-[var(--muted)]">{CATEGORY_RULE_HELP}</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={buttonClassName} onClick={creerRegle}>
+                  Créer la règle
+                </button>
+                <button
+                  type="button"
+                  className={buttonClassName}
+                  onClick={() => {
+                    setRegleOuverte(false);
+                    setErreurRegle(undefined);
+                  }}
+                >
+                  Renoncer
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              className={buttonClassName}
+              onClick={() => {
+                setRegleCreee(null);
+                setRegleOuverte(true);
+              }}
+            >
+              Appliquer cette catégorie à ce commerçant…
+            </button>
+          )}
+          {regleCreee ? <p role="status">{regleCreee}</p> : null}
+        </div>
+      ) : null}
 
       {confirmationSuppression ? (
         <div

@@ -405,3 +405,111 @@ export function classifyWithRule(
   }
   return { ok: true, document: courant };
 }
+
+// --- Gestion des règles par l'utilisateur (récit 6) -----------------------------------------------
+//
+// Les règles sont celles de l'utilisateur, initiales comprises : il peut toutes les modifier et
+// les supprimer. Aucune de ces fonctions ne revient sur un sort déjà tranché ni sur une dépense
+// déjà importée : une règle ne vaut que pour les opérations à venir.
+
+export type RuleEditFailure = "invalidPattern" | "invalidCategory";
+
+export type RuleEditOutcome =
+  | { ok: true; document: BudgetDocument }
+  | { ok: false; reason: RuleEditFailure };
+
+function motifValide(motif: string): boolean {
+  return motif.length >= MOTIF_MIN && motif.length <= LABEL_MAX;
+}
+
+function categorieValide(nom: string): boolean {
+  return nom.length >= 1 && nom.length <= LABEL_MAX;
+}
+
+/**
+ * « Appliquer à ce commerçant » : nouvelle règle de catégorie, ajoutée **en tête** pour
+ * l'emporter sur une règle plus générale déjà présente. Les dépenses passées ne changent pas.
+ */
+export function addCategoryRule(
+  doc: BudgetDocument,
+  regle: { id: Id; contains: string; category: string },
+): RuleEditOutcome {
+  const contains = regle.contains.trim();
+  const category = regle.category.trim();
+  if (!motifValide(contains)) return { ok: false, reason: "invalidPattern" };
+  if (!categorieValide(category)) return { ok: false, reason: "invalidCategory" };
+
+  return {
+    ok: true,
+    document: {
+      ...doc,
+      banking: {
+        ...doc.banking,
+        categoryRules: [{ id: regle.id, contains, category }, ...doc.banking.categoryRules],
+      },
+    },
+  };
+}
+
+/** Modifie le motif ou la catégorie d'une règle de catégorie, sans changer son rang. */
+export function updateCategoryRule(
+  doc: BudgetDocument,
+  id: Id,
+  modification: { contains: string; category: string },
+): RuleEditOutcome {
+  const contains = modification.contains.trim();
+  const category = modification.category.trim();
+  if (!motifValide(contains)) return { ok: false, reason: "invalidPattern" };
+  if (!categorieValide(category)) return { ok: false, reason: "invalidCategory" };
+
+  return {
+    ok: true,
+    document: {
+      ...doc,
+      banking: {
+        ...doc.banking,
+        categoryRules: doc.banking.categoryRules.map((regle) =>
+          regle.id === id ? { ...regle, contains, category } : regle,
+        ),
+      },
+    },
+  };
+}
+
+/**
+ * Modifie le motif d'une règle de traitement, sans changer son rang, sa banque ni son action.
+ * Le registre garde la trace des opérations que l'ancien motif a tranchées : elles ne sont pas
+ * retraitées.
+ */
+export function updateTreatmentRule(doc: BudgetDocument, id: Id, contains: string): RuleEditOutcome {
+  const motif = contains.trim();
+  if (!motifValide(motif)) return { ok: false, reason: "invalidPattern" };
+
+  return {
+    ok: true,
+    document: {
+      ...doc,
+      banking: {
+        ...doc.banking,
+        rules: doc.banking.rules.map((regle) =>
+          regle.id === id ? { ...regle, contains: motif } : regle,
+        ),
+      },
+    },
+  };
+}
+
+/**
+ * Supprime une règle, de traitement ou de catégorie. Ce qu'elle a déjà tranché reste tranché :
+ * une opération ignorée par cette règle ne réapparaît pas.
+ */
+export function removeRule(doc: BudgetDocument, id: Id): BudgetDocument {
+  return {
+    ...doc,
+    banking: {
+      ...doc.banking,
+      rules: doc.banking.rules.filter((regle) => regle.id !== id),
+      categoryRules: doc.banking.categoryRules.filter((regle) => regle.id !== id),
+    },
+  };
+}

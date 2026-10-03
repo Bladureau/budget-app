@@ -51,6 +51,35 @@ export const INBOX_REASON_MESSAGES: Readonly<Record<InboxReason, string>> = {
 
 export const INVALID_PATTERN = "Le motif doit faire au moins 2 caractères.";
 
+// --- Gestion des règles (récit 6) ----------------------------------------------------------
+
+import type { RuleEditFailure } from "@/features/banking/rules";
+import type { TreatmentAction } from "@/features/budget/types";
+
+export const RULE_EDIT_ERROR_MESSAGES: Readonly<Record<RuleEditFailure, string>> = {
+  invalidPattern: "Le motif doit faire entre 2 et 80 caractères.",
+  invalidCategory: "Saisissez une catégorie, de 80 caractères au plus.",
+};
+
+export const RULES_EXPLANATION =
+  "Ces règles décident du sort des opérations bancaires à venir. Elles sont lues dans l’ordre : la première qui correspond l’emporte. Modifier ou supprimer une règle ne change rien à ce qui a déjà été importé.";
+
+export const TREATMENT_ACTION_LABELS: Readonly<Record<TreatmentAction["type"], string>> = {
+  ignore: "Ignorer",
+  expense: "Compter en dépense",
+  subscription: "Déjà compté dans un abonnement",
+};
+
+export const CATEGORY_RULE_HELP =
+  "Les prochaines dépenses dont le libellé contient ce motif recevront cette catégorie. Les dépenses déjà importées ne changent pas.";
+
+export const CATEGORY_RULE_NEEDS_CATEGORY =
+  "Saisissez d’abord une catégorie dans le champ « Catégorie ».";
+
+export function categoryRuleCreated(contains: string, category: string): string {
+  return `Règle créée : les prochaines dépenses contenant « ${contains} » iront dans « ${category} ».`;
+}
+
 /** R3 : le serveur est resté éteint plus de 90 jours. */
 export const HISTORY_GAP =
   "Le serveur est resté éteint longtemps : la banque n’a peut-être pas rendu les opérations les plus anciennes. Vérifiez vos dépenses du début de la période et saisissez à la main celles qui manquent.";
