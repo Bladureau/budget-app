@@ -238,6 +238,15 @@ synchronisation, et vérifier que la modification est conservée et que la suppr
 3. **Étant donné** une catégorie que j'attribue à une dépense importée,
    **quand** je demande à l'appliquer à ce commerçant,
    **alors** les dépenses futures de ce commerçant reçoivent cette catégorie.
+4. **Étant donné** une dépense du journal qui est en réalité le paiement d'un abonnement
+   *(ajout du 2026-10-03, à la demande de l'utilisateur)*,
+   **quand** je la marque comme abonnement depuis le bouton placé à côté de « Détail », en
+   choisissant dans la fenêtre un abonnement existant ou en en créant un,
+   **alors** la dépense est retirée du journal (l'abonnement la compte déjà dans les charges du
+   mois), et, si elle venait de la banque, les prochains paiements de ce commerçant ne sont plus
+   importés. Les dépenses déjà importées les mois précédents ne sont pas retouchées. Un abonnement
+   créé dans la fenêtre est prérempli d'après la dépense (libellé, montant, date, périodicité
+   mensuelle) et n'est enregistré que si le rattachement aboutit.
 
 ---
 

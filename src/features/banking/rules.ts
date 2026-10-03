@@ -499,6 +499,78 @@ export function updateTreatmentRule(doc: BudgetDocument, id: Id, contains: strin
   };
 }
 
+export type TagOutcome =
+  | { ok: true; document: BudgetDocument }
+  | { ok: false; reason: "invalidPattern" | "unknownExpense" | "unknownSubscription" };
+
+/**
+ * « Marquer comme abonnement » : la dépense est en réalité le paiement d'un abonnement, déjà
+ * compté dans les charges du mois. Elle est donc **retirée** des dépenses — la garder la
+ * compterait deux fois.
+ *
+ * Pour une dépense importée, une règle de rattachement est ajoutée en tête : les prochains
+ * paiements du même commerçant seront ignorés à l'import, et les éléments encore « À classer »
+ * qu'elle vise le sont aussitôt. Le registre retient que l'opération a été tranchée, si bien
+ * qu'elle n'est jamais réimportée. Les dépenses déjà importées d'autres mois ne sont pas
+ * retouchées : une règle ne vaut que pour l'avenir.
+ *
+ * Pour une dépense saisie à la main, il n'y a ni banque ni libellé bancaire : aucune règle,
+ * la dépense est simplement retirée.
+ */
+export function tagExpenseAsSubscription(
+  doc: BudgetDocument,
+  expenseId: Id,
+  regle: { id: Id; subscriptionId: Id; contains: string },
+): TagOutcome {
+  const visee = doc.expenses.find((d) => d.id === expenseId);
+  if (!visee) return { ok: false, reason: "unknownExpense" };
+  if (!doc.subscriptions.some((a) => a.id === regle.subscriptionId)) {
+    return { ok: false, reason: "unknownSubscription" };
+  }
+
+  const sansLaDepense: BudgetDocument = {
+    ...doc,
+    expenses: doc.expenses.filter((d) => d.id !== expenseId),
+  };
+  if (visee.source === undefined || visee.bankRef === undefined) {
+    return { ok: true, document: sansLaDepense };
+  }
+
+  const motif = regle.contains.trim();
+  if (!motifValide(motif)) return { ok: false, reason: "invalidPattern" };
+
+  const nouvelle: TreatmentRule = {
+    id: regle.id,
+    bank: visee.source,
+    contains: motif,
+    action: { type: "subscription", subscriptionId: regle.subscriptionId },
+  };
+  const reason = `rule:${regle.id}`;
+  const reference = visee.bankRef;
+
+  let courant: BudgetDocument = {
+    ...sansLaDepense,
+    banking: {
+      ...sansLaDepense.banking,
+      rules: [nouvelle, ...sansLaDepense.banking.rules],
+      ledger: sansLaDepense.banking.ledger.map((entree) =>
+        entree.ref === reference ? { ...entree, outcome: "ignored", reason } : entree,
+      ),
+    },
+  };
+
+  for (const element of doc.banking.inbox) {
+    // Un crédit n'est jamais visé par une règle (contrat : étape 4 avant l'étape 9).
+    if (
+      element.direction === "debit" &&
+      regleCorrespond(nouvelle, element.bank, element.label, element.rawLabel)
+    ) {
+      courant = retirerDeLaListe(courant, element.ref, "ignored", reason);
+    }
+  }
+  return { ok: true, document: courant };
+}
+
 /**
  * Supprime une règle, de traitement ou de catégorie. Ce qu'elle a déjà tranché reste tranché :
  * une opération ignorée par cette règle ne réapparaît pas.

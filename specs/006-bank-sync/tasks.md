@@ -413,6 +413,21 @@ vérifier que tout tient.
 - [X] T062 [US6] Créer `src/features/banking/components/rule-list.test.tsx` : suppression,
       modification, utilisation au clavier.
 
+- [X] T069 [US6] Fonction pure `tagExpenseAsSubscription` dans `src/features/banking/rules.ts`
+      (récit 6, scénario 4) : retire la dépense ; pour une dépense importée, ajoute en tête une
+      règle de rattachement, passe l'entrée du registre à `ignored` et classe les éléments « À
+      classer » visés ; pour une dépense manuelle, aucune règle. Testée dans
+      `src/features/banking/rule-editing.test.ts`.
+- [X] T070 [US6] Mutation `tagExpenseAsSubscription` dans
+      `src/features/budget/budget-provider.tsx` : abonnement existant ou créé, et rattachement,
+      en **une seule écriture**.
+- [X] T071 [US6] Fenêtre `src/features/budget/components/subscription-tag-dialog.tsx`
+      (`<dialog>` modal natif) et bouton « Abonnement… » à côté de « Détail » dans
+      `src/features/budget/components/expense-journal.tsx`.
+- [X] T072 [US6] Scénarios de bout en bout dans
+      `src/features/banking/bank-sync.integration.test.tsx` ; substitut de `showModal` / `close`
+      pour jsdom dans `vitest.setup.ts`.
+
 **Point de contrôle** : quickstart §4, étape 9, passe.
 
 > **Réalisé le 2026-10-03**, après les fonctionnalités 007 et 008. Écarts : les fonctions pures

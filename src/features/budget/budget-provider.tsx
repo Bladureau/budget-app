@@ -55,10 +55,14 @@ import {
   classifyWithRule,
   processBatch,
   removeRule,
+  tagExpenseAsSubscription as withSubscriptionTag,
   updateCategoryRule as withCategoryRuleUpdate,
   updateTreatmentRule as withTreatmentRuleUpdate,
 } from "@/features/banking/rules";
-import type { RuleEditFailure } from "@/features/banking/rules";
+import type { RuleEditFailure, TagOutcome } from "@/features/banking/rules";
+
+/** Motif de refus d'un rattachement à un abonnement. */
+export type TagFailure = Extract<TagOutcome, { ok: false }>["reason"];
 
 import type { BankStatus } from "@/features/banking/types";
 import type {
@@ -194,6 +198,16 @@ interface BudgetContextValue {
   updateCategoryRule: (id: string, contains: string, category: string) => RuleEditFailure | null;
   updateTreatmentRule: (id: string, contains: string) => RuleEditFailure | null;
   removeBankRule: (id: string) => void;
+  /**
+   * « Marquer comme abonnement » : rattache la dépense à un abonnement existant, ou à un
+   * abonnement créé pour l'occasion, **en une seule écriture**. La dépense est retirée ; pour
+   * une dépense importée, les prochains paiements du commerçant ne seront plus importés.
+   */
+  tagExpenseAsSubscription: (
+    expenseId: string,
+    target: { subscriptionId: string } | { create: Omit<Subscription, "id"> },
+    contains: string,
+  ) => TagFailure | null;
 
   /**
    * Réserve d'épargne (fonctionnalité 008). `balanceTodayCents` est le solde **du jour** : la
@@ -932,6 +946,38 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     [appliquer],
   );
 
+  const tagExpenseAsSubscription = useCallback(
+    (
+      expenseId: string,
+      target: { subscriptionId: string } | { create: Omit<Subscription, "id"> },
+      contains: string,
+    ): TagFailure | null => {
+      let actuel = lireInstantaneClient();
+      let subscriptionId: string;
+      if ("create" in target) {
+        // L'abonnement et le rattachement partent dans la même écriture : un refus du
+        // rattachement ne doit pas laisser derrière lui un abonnement orphelin.
+        subscriptionId = newId();
+        actuel = {
+          ...actuel,
+          subscriptions: [...actuel.subscriptions, { ...target.create, id: subscriptionId }],
+        };
+      } else {
+        subscriptionId = target.subscriptionId;
+      }
+
+      const resultat = withSubscriptionTag(actuel, expenseId, {
+        id: newId(),
+        subscriptionId,
+        contains,
+      });
+      if (!resultat.ok) return resultat.reason;
+      appliquer(resultat.document);
+      return null;
+    },
+    [appliquer],
+  );
+
   // --- Export et import (fonctionnalité 004) -------------------------------------------
 
   const exportData = useCallback(() => {
@@ -1034,6 +1080,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       updateCategoryRule,
       updateTreatmentRule,
       removeBankRule,
+      tagExpenseAsSubscription,
     }),
     [
       document,
@@ -1081,6 +1128,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       updateCategoryRule,
       updateTreatmentRule,
       removeBankRule,
+      tagExpenseAsSubscription,
     ],
   );
 

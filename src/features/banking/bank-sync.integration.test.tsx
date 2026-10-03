@@ -534,3 +534,166 @@ describe("récit 6 — garder la main sur ce qui a été importé", () => {
     ).not.toBeInTheDocument();
   });
 });
+describe("récit 6 — marquer une dépense comme abonnement", () => {
+  const spotify = {
+    id: "abo-spotify",
+    label: "Spotify",
+    periodicity: "monthly" as const,
+    startDate: "2026-01-14",
+    endDate: null,
+    amounts: [{ amountCents: 707, effectiveFrom: "2026-01-14" }],
+    pauses: [],
+  };
+
+  /** Ouvre la fenêtre depuis le bouton « Abonnement… » de la dépense, dans le journal. */
+  async function ouvrirFenetre(utilisateur: ReturnType<typeof userEvent.setup>, bouton: RegExp) {
+    await ouvrirOnglet("Dépenses");
+    await utilisateur.click(await journal().findByRole("button", { name: bouton }));
+    return within(await screen.findByRole("dialog", { name: "Marquer comme abonnement" }));
+  }
+
+  async function resynchroniser() {
+    const appelsAvant = serveur.appels.operations;
+    cleanup();
+    await ouvrirAppareil();
+    await waitFor(() => expect(serveur.appels.operations).toBe(appelsAvant + 1));
+  }
+
+  it("rattache une dépense importée à un abonnement existant et la retire du journal", async () => {
+    const utilisateur = userEvent.setup();
+    serveur.document = { ...serveur.document, subscriptions: [spotify] };
+    await ouvrirAppareil();
+    await waitFor(() => expect(serveur.document.expenses).toHaveLength(2));
+
+    const fenetre = await ouvrirFenetre(utilisateur, /Marquer PETROLEC SUD .* comme abonnement/);
+    // Avec un abonnement déjà saisi, c'est lui qui est proposé d'emblée.
+    expect(fenetre.getByRole("radio", { name: "Un abonnement existant" })).toBeChecked();
+    expect(fenetre.getByLabelText("Abonnement existant")).toHaveValue("abo-spotify");
+    expect(fenetre.getByLabelText("Pour les opérations dont le libellé contient")).toHaveValue(
+      "PETROLEC SUD",
+    );
+    await utilisateur.click(fenetre.getByRole("button", { name: "Valider" }));
+
+    await waitFor(() => {
+      expect(serveur.document.expenses.map((d) => d.id)).toEqual(["bank:lcl:courses"]);
+    });
+    expect(serveur.document.banking.rules[0]).toMatchObject({
+      bank: "lcl",
+      contains: "PETROLEC SUD",
+      action: { type: "subscription", subscriptionId: "abo-spotify" },
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(journal().queryByText("PETROLEC SUD")).not.toBeInTheDocument();
+
+    // La banque rend à nouveau l'opération, et un nouveau paiement du même commerçant.
+    serveur.operations = [
+      ...OPERATIONS,
+      operation("carte2", { amountCents: 5210, label: "PETROLEC SUD", paymentDate: "2026-09-20" }),
+    ];
+    await resynchroniser();
+    await waitFor(() => {
+      expect(serveur.document.banking.ledger.some((e) => e.ref === "lcl:carte2")).toBe(true);
+    });
+    expect(serveur.document.expenses.map((d) => d.id)).toEqual(["bank:lcl:courses"]);
+  });
+
+  it("crée l'abonnement depuis la fenêtre, prérempli d'après la dépense", async () => {
+    const utilisateur = userEvent.setup();
+    await ouvrirAppareil();
+    await waitFor(() => expect(serveur.document.expenses).toHaveLength(2));
+
+    const fenetre = await ouvrirFenetre(utilisateur, /Marquer PETROLEC SUD .* comme abonnement/);
+    // Sans abonnement existant, la fenêtre propose directement d'en créer un.
+    expect(fenetre.queryByRole("radio")).not.toBeInTheDocument();
+    expect(fenetre.getByLabelText("Libellé de l’abonnement")).toHaveValue("PETROLEC SUD");
+    expect(fenetre.getByLabelText("Montant de l’échéance")).toHaveValue("33,82");
+    expect(fenetre.getByLabelText("Première échéance")).toHaveValue("2026-09-08");
+
+    const libelle = fenetre.getByLabelText("Libellé de l’abonnement");
+    await utilisateur.clear(libelle);
+    await utilisateur.type(libelle, "Carburant mensuel");
+    await utilisateur.click(fenetre.getByRole("button", { name: "Valider" }));
+
+    await waitFor(() => expect(serveur.document.subscriptions).toHaveLength(1));
+    const cree = serveur.document.subscriptions[0];
+    expect(cree).toMatchObject({
+      label: "Carburant mensuel",
+      periodicity: "monthly",
+      startDate: "2026-09-08",
+      endDate: null,
+      amounts: [{ amountCents: 3382, effectiveFrom: "2026-09-08" }],
+      pauses: [],
+    });
+    // L'abonnement et le rattachement sont partis ensemble : la règle vise l'abonnement créé.
+    expect(serveur.document.banking.rules[0].action).toEqual({
+      type: "subscription",
+      subscriptionId: cree.id,
+    });
+    expect(serveur.document.expenses.map((d) => d.id)).toEqual(["bank:lcl:courses"]);
+  });
+
+  it("laisse choisir entre un abonnement existant et un nouveau", async () => {
+    const utilisateur = userEvent.setup();
+    serveur.document = { ...serveur.document, subscriptions: [spotify] };
+    await ouvrirAppareil();
+    await waitFor(() => expect(serveur.document.expenses).toHaveLength(2));
+
+    const fenetre = await ouvrirFenetre(utilisateur, /Marquer PETROLEC SUD .* comme abonnement/);
+    await utilisateur.click(fenetre.getByRole("radio", { name: "Un nouvel abonnement" }));
+    expect(fenetre.queryByLabelText("Abonnement existant")).not.toBeInTheDocument();
+    await utilisateur.click(fenetre.getByRole("button", { name: "Valider" }));
+
+    await waitFor(() => expect(serveur.document.subscriptions).toHaveLength(2));
+    expect(serveur.document.subscriptions[1].label).toBe("PETROLEC SUD");
+  });
+
+  it("refuse une saisie invalide sans rien enregistrer, puis « Annuler » referme la fenêtre", async () => {
+    const utilisateur = userEvent.setup();
+    await ouvrirAppareil();
+    await waitFor(() => expect(serveur.document.expenses).toHaveLength(2));
+    const ecrituresAvant = serveur.appels.put;
+
+    const fenetre = await ouvrirFenetre(utilisateur, /Marquer PETROLEC SUD .* comme abonnement/);
+    await utilisateur.clear(fenetre.getByLabelText("Libellé de l’abonnement"));
+    await utilisateur.clear(fenetre.getByLabelText("Montant de l’échéance"));
+    await utilisateur.click(fenetre.getByRole("button", { name: "Valider" }));
+    expect(fenetre.getByText("Saisissez un libellé.")).toBeInTheDocument();
+    expect(fenetre.getByText("Saisissez un montant.")).toBeInTheDocument();
+
+    // Abonnement valide, mais motif trop court : rien ne doit être créé, pas même l'abonnement.
+    await utilisateur.type(fenetre.getByLabelText("Libellé de l’abonnement"), "Carburant");
+    await utilisateur.type(fenetre.getByLabelText("Montant de l’échéance"), "33,82");
+    const motif = fenetre.getByLabelText("Pour les opérations dont le libellé contient");
+    await utilisateur.clear(motif);
+    await utilisateur.type(motif, "P");
+    await utilisateur.click(fenetre.getByRole("button", { name: "Valider" }));
+    expect(fenetre.getByText("Le motif doit faire entre 2 et 80 caractères.")).toBeInTheDocument();
+
+    await utilisateur.click(fenetre.getByRole("button", { name: "Annuler" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(serveur.document.subscriptions).toEqual([]);
+    expect(serveur.document.expenses).toHaveLength(2);
+    expect(serveur.appels.put).toBe(ecrituresAvant);
+  });
+
+  it("retire une dépense saisie à la main, sans motif ni règle", async () => {
+    const utilisateur = userEvent.setup();
+    serveur.document = {
+      ...serveur.document,
+      subscriptions: [spotify],
+      expenses: [{ id: "manuelle", amountCents: 707, date: "2026-09-14", label: "Spotify", category: null }],
+    };
+    serveur.operations = [];
+    await ouvrirAppareil();
+    const reglesAvant = serveur.document.banking.rules.length;
+
+    const fenetre = await ouvrirFenetre(utilisateur, /Marquer Spotify .* comme abonnement/);
+    expect(
+      fenetre.queryByLabelText("Pour les opérations dont le libellé contient"),
+    ).not.toBeInTheDocument();
+    await utilisateur.click(fenetre.getByRole("button", { name: "Valider" }));
+
+    await waitFor(() => expect(serveur.document.expenses).toEqual([]));
+    expect(serveur.document.banking.rules).toHaveLength(reglesAvant);
+  });
+});
