@@ -76,6 +76,16 @@ export const CATEGORY_RULE_HELP =
 export const CATEGORY_RULE_NEEDS_CATEGORY =
   "Saisissez d’abord une catégorie dans le champ « Catégorie ».";
 
+// --- « Marquer comme abonnement » ----------------------------------------------------------
+
+export const TAG_EXPLANATION =
+  "Cette dépense sera retirée de vos dépenses : c’est l’abonnement qui la compte, dans les charges du mois.";
+
+export const TAG_EXPLANATION_IMPORTED =
+  "Les prochains paiements de ce commerçant ne seront plus importés comme des dépenses. Ceux déjà importés ne changent pas.";
+
+export const TAG_NO_SUBSCRIPTION = "Choisissez un abonnement.";
+
 export function categoryRuleCreated(contains: string, category: string): string {
   return `Règle créée : les prochaines dépenses contenant « ${contains} » iront dans « ${category} ».`;
 }

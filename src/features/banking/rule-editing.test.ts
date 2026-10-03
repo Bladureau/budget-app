@@ -13,11 +13,12 @@ import {
   addCategoryRule,
   processBatch,
   removeRule,
+  tagExpenseAsSubscription,
   updateCategoryRule,
   updateTreatmentRule,
 } from "@/features/banking/rules";
 import { emptyDocument } from "@/features/budget/types";
-import type { BudgetDocument } from "@/features/budget/types";
+import type { BudgetDocument, Subscription } from "@/features/budget/types";
 import { normalizeLclBatch } from "@/lib/server/banking/normalize-lcl";
 import { lclBrute, lclCarte } from "@/lib/server/banking/fixtures";
 
@@ -154,6 +155,143 @@ describe("updateCategoryRule et updateTreatmentRule", () => {
     const resultat = updateTreatmentRule(doc, "inconnu", "MOTIF");
     if (!resultat.ok) throw new Error("modification refusée");
     expect(resultat.document.banking.rules).toEqual(doc.banking.rules);
+  });
+});
+
+describe("tagExpenseAsSubscription", () => {
+  const spotify: Subscription = {
+    id: "abo-spotify",
+    label: "Spotify",
+    periodicity: "monthly",
+    startDate: "2026-01-14",
+    endDate: null,
+    amounts: [{ amountCents: 707, effectiveFrom: "2026-01-14" }],
+    pauses: [],
+  };
+
+  /** Budget où un paiement « ANTHROPIC » a été importé comme une dépense ordinaire. */
+  function avecDepenseImportee(): BudgetDocument {
+    const [paiement] = lcl([lclCarte("c1", "2026-09-10", "20.00", "ANTHROPIC", "09/09/26")]);
+    return processBatch([paiement], { ...budget(), subscriptions: [spotify] });
+  }
+
+  const regle = { id: "r1", subscriptionId: "abo-spotify", contains: "ANTHROPIC" };
+
+  it("retire la dépense importée : l'abonnement la compte déjà dans les charges", () => {
+    const doc = avecDepenseImportee();
+    expect(doc.expenses).toHaveLength(1);
+
+    const resultat = tagExpenseAsSubscription(doc, doc.expenses[0].id, regle);
+    if (!resultat.ok) throw new Error("rattachement refusé");
+    expect(resultat.document.expenses).toEqual([]);
+  });
+
+  it("ajoute en tête une règle de rattachement pour la banque de la dépense", () => {
+    const doc = avecDepenseImportee();
+    const resultat = tagExpenseAsSubscription(doc, doc.expenses[0].id, {
+      ...regle,
+      contains: "  ANTHROPIC  ",
+    });
+    if (!resultat.ok) throw new Error("rattachement refusé");
+
+    expect(resultat.document.banking.rules[0]).toEqual({
+      id: "r1",
+      bank: "lcl",
+      contains: "ANTHROPIC",
+      action: { type: "subscription", subscriptionId: "abo-spotify" },
+    });
+    expect(resultat.document.banking.rules).toHaveLength(doc.banking.rules.length + 1);
+  });
+
+  it("garde l'opération au registre, comme ignorée : elle n'est jamais réimportée", () => {
+    const [paiement] = lcl([lclCarte("c1", "2026-09-10", "20.00", "ANTHROPIC", "09/09/26")]);
+    const doc = avecDepenseImportee();
+    const resultat = tagExpenseAsSubscription(doc, doc.expenses[0].id, regle);
+    if (!resultat.ok) throw new Error("rattachement refusé");
+
+    expect(resultat.document.banking.ledger).toEqual([
+      { ref: paiement.ref, outcome: "ignored", reason: "rule:r1" },
+    ]);
+    // La banque rend à nouveau l'opération : rien ne change.
+    expect(processBatch([paiement], resultat.document)).toBe(resultat.document);
+  });
+
+  it("ignore à l'import les prochains paiements du même commerçant", () => {
+    const doc = avecDepenseImportee();
+    const resultat = tagExpenseAsSubscription(doc, doc.expenses[0].id, regle);
+    if (!resultat.ok) throw new Error("rattachement refusé");
+
+    const [suivant] = lcl([lclCarte("c2", "2026-10-10", "20.00", "ANTHROPIC", "09/10/26")]);
+    const apres = processBatch([suivant], resultat.document);
+    expect(apres.expenses).toEqual([]);
+    expect(apres.banking.inbox).toEqual([]);
+    expect(apres.banking.ledger.at(-1)).toEqual({
+      ref: suivant.ref,
+      outcome: "ignored",
+      reason: "rule:r1",
+    });
+  });
+
+  it("ne retouche pas les autres dépenses déjà importées du même commerçant", () => {
+    const [aout, septembre] = lcl([
+      lclCarte("c0", "2026-09-02", "20.00", "ANTHROPIC", "01/09/26"),
+      lclCarte("c1", "2026-09-10", "20.00", "ANTHROPIC", "09/09/26"),
+    ]);
+    const doc = processBatch([aout, septembre], { ...budget(), subscriptions: [spotify] });
+    expect(doc.expenses).toHaveLength(2);
+
+    const resultat = tagExpenseAsSubscription(doc, doc.expenses[1].id, regle);
+    if (!resultat.ok) throw new Error("rattachement refusé");
+    expect(resultat.document.expenses.map((d) => d.id)).toEqual([doc.expenses[0].id]);
+  });
+
+  it("classe aussitôt les éléments « À classer » que la règle vise", () => {
+    const [prelevement] = lcl([
+      lclBrute("p1", "2026-09-12", "20.00", "DBIT", ["PRELVT SEPA", "ANTHROPIC PBC"]),
+    ]);
+    const doc = processBatch([prelevement], avecDepenseImportee());
+    expect(doc.banking.inbox).toHaveLength(1);
+
+    const resultat = tagExpenseAsSubscription(doc, doc.expenses[0].id, regle);
+    if (!resultat.ok) throw new Error("rattachement refusé");
+    expect(resultat.document.banking.inbox).toEqual([]);
+    expect(resultat.document.banking.ledger.find((e) => e.ref === prelevement.ref)).toMatchObject({
+      outcome: "ignored",
+      reason: "rule:r1",
+    });
+  });
+
+  it("retire simplement une dépense saisie à la main, sans créer de règle", () => {
+    const doc: BudgetDocument = {
+      ...budget(),
+      subscriptions: [spotify],
+      expenses: [{ id: "manuelle", amountCents: 707, date: "2026-09-14", category: null }],
+    };
+    // Sans banque, le motif n'a pas de sens : il n'est même pas validé.
+    const resultat = tagExpenseAsSubscription(doc, "manuelle", { ...regle, contains: "" });
+    if (!resultat.ok) throw new Error("rattachement refusé");
+
+    expect(resultat.document.expenses).toEqual([]);
+    expect(resultat.document.banking).toEqual(doc.banking);
+  });
+
+  it("refuse un motif invalide, une dépense ou un abonnement inconnus, sans rien changer", () => {
+    const doc = avecDepenseImportee();
+    const id = doc.expenses[0].id;
+
+    expect(tagExpenseAsSubscription(doc, id, { ...regle, contains: "A" })).toEqual({
+      ok: false,
+      reason: "invalidPattern",
+    });
+    expect(tagExpenseAsSubscription(doc, "inconnue", regle)).toEqual({
+      ok: false,
+      reason: "unknownExpense",
+    });
+    expect(tagExpenseAsSubscription(doc, id, { ...regle, subscriptionId: "inconnu" })).toEqual({
+      ok: false,
+      reason: "unknownSubscription",
+    });
+    expect(doc.expenses).toHaveLength(1);
   });
 });
 

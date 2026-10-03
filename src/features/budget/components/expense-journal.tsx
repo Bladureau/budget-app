@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useBudget } from "@/features/budget/budget-provider";
 import { ExpenseDetail } from "@/features/budget/components/expense-detail";
+import { SubscriptionTagDialog } from "@/features/budget/components/subscription-tag-dialog";
 import { buttonClassName, inputClassName } from "@/features/budget/components/form-field";
 import { groupByDay, searchExpenses } from "@/features/budget/expenses";
 import { EMPTY_JOURNAL, NO_SEARCH_RESULT } from "@/features/budget/messages";
@@ -31,6 +32,7 @@ export function ExpenseJournal() {
   const [moisFiltre, setMoisFiltre] = useState<string>("");
   const [tranche, setTranche] = useState(TAILLE_TRANCHE);
   const [enEdition, setEnEdition] = useState<string | null>(null);
+  const [enRattachement, setEnRattachement] = useState<string | null>(null);
 
   /**
    * Changer de filtre repart du début de liste : conserver une tranche étendue n'aurait pas
@@ -224,7 +226,7 @@ export function ExpenseJournal() {
                                   </p>
                                 ) : null}
                               </div>
-                              <div className="flex items-center gap-3">
+                              <div className="flex flex-wrap items-center justify-end gap-3">
                                 <span className="font-semibold tabular-nums">
                                   {formatCents(depense.amountCents)}
                                 </span>
@@ -243,6 +245,25 @@ export function ExpenseJournal() {
                                 >
                                   Détail
                                 </button>
+                                {/* Une dépense qui est en fait le paiement d'un abonnement :
+                                    la fenêtre la rattache à un abonnement existant ou nouveau
+                                    (fonctionnalité 006, récit 6). */}
+                                <button
+                                  type="button"
+                                  className={buttonClassName}
+                                  aria-label={`Marquer ${
+                                    depense.label ?? "la dépense"
+                                  } du ${formatIsoDateFr(depense.date)} comme abonnement`}
+                                  onClick={() => setEnRattachement(depense.id)}
+                                >
+                                  Abonnement…
+                                </button>
+                                {enRattachement === depense.id ? (
+                                  <SubscriptionTagDialog
+                                    expense={depense}
+                                    onDone={() => setEnRattachement(null)}
+                                  />
+                                ) : null}
                               </div>
                             </div>
                           )}
