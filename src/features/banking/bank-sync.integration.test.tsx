@@ -382,3 +382,155 @@ describe("récit 3 — « À classer »", () => {
     await waitFor(() => expect(serveur.document.banking.rules[0]).toMatchObject({ contains: "JEANNE DUPONT" }));
   });
 });
+
+describe("récit 6 — garder la main sur ce qui a été importé", () => {
+  /** Rouvre l'application sur le même appareil : la banque rend à nouveau les mêmes opérations. */
+  async function resynchroniser() {
+    const appelsAvant = serveur.appels.operations;
+    cleanup();
+    await ouvrirAppareil();
+    await waitFor(() => expect(serveur.appels.operations).toBe(appelsAvant + 1));
+  }
+
+  async function ouvrirDetail(utilisateur: ReturnType<typeof userEvent.setup>, libelle: RegExp) {
+    await waitFor(() => expect(serveur.document.expenses).toHaveLength(2));
+    await ouvrirOnglet("Dépenses");
+    await utilisateur.click(journal().getByRole("button", { name: libelle }));
+  }
+
+  it("conserve une dépense importée que j'ai corrigée (EF-033)", async () => {
+    const utilisateur = userEvent.setup();
+    await ouvrirAppareil();
+    await ouvrirDetail(utilisateur, /Détail de PETROLEC SUD/);
+
+    const montant = journal().getByLabelText("Montant");
+    await utilisateur.clear(montant);
+    await utilisateur.type(montant, "40,00");
+    const libelle = journal().getByLabelText("Libellé");
+    await utilisateur.clear(libelle);
+    await utilisateur.type(libelle, "Essence");
+    await utilisateur.type(journal().getByLabelText("Catégorie"), "Carburant");
+    const date = journal().getByLabelText("Date");
+    await utilisateur.clear(date);
+    await utilisateur.type(date, "2026-09-07");
+    await utilisateur.click(journal().getByRole("button", { name: "Enregistrer" }));
+
+    const corrigee = {
+      id: "bank:lcl:carte",
+      amountCents: 4000,
+      date: "2026-09-07",
+      label: "Essence",
+      category: "Carburant",
+      source: "lcl",
+      bankRef: "lcl:carte",
+    };
+    await waitFor(() => {
+      expect(serveur.document.expenses.find((d) => d.id === "bank:lcl:carte")).toEqual(corrigee);
+    });
+
+    await resynchroniser();
+
+    // Ni écrasée, ni dédoublée : la banque a rendu l'opération d'origine, elle a été ignorée.
+    expect(serveur.document.expenses).toHaveLength(2);
+    expect(serveur.document.expenses.find((d) => d.id === "bank:lcl:carte")).toEqual(corrigee);
+    expect(journal().getByText("Essence")).toBeInTheDocument();
+    expect(journal().queryByText("PETROLEC SUD")).not.toBeInTheDocument();
+  });
+
+  it("ne réimporte jamais une dépense importée que j'ai supprimée (EF-034)", async () => {
+    const utilisateur = userEvent.setup();
+    await ouvrirAppareil();
+    await ouvrirDetail(utilisateur, /Détail de PETROLEC SUD/);
+
+    await utilisateur.click(journal().getByRole("button", { name: "Supprimer" }));
+    await utilisateur.click(journal().getByRole("button", { name: "Confirmer la suppression" }));
+    await waitFor(() => expect(serveur.document.expenses).toHaveLength(1));
+
+    await resynchroniser();
+
+    expect(serveur.document.expenses.map((d) => d.id)).toEqual(["bank:lcl:courses"]);
+    // Le registre garde la trace de l'opération : c'est ce qui empêche son retour.
+    expect(serveur.document.banking.ledger.some((e) => e.ref === "lcl:carte")).toBe(true);
+    expect(journal().queryByText("PETROLEC SUD")).not.toBeInTheDocument();
+  });
+
+  it("applique une catégorie aux prochaines dépenses du même commerçant, pas aux passées", async () => {
+    const utilisateur = userEvent.setup();
+    await ouvrirAppareil();
+    await ouvrirDetail(utilisateur, /Détail de PETROLEC SUD/);
+
+    await utilisateur.type(journal().getByLabelText("Catégorie"), "Carburant");
+    await utilisateur.click(
+      journal().getByRole("button", { name: "Appliquer cette catégorie à ce commerçant…" }),
+    );
+    // Le motif proposé est le libellé de la dépense, modifiable avant validation.
+    expect(journal().getByLabelText("Pour les opérations dont le libellé contient")).toHaveValue(
+      "PETROLEC SUD",
+    );
+    await utilisateur.click(journal().getByRole("button", { name: "Créer la règle" }));
+
+    expect(journal().getByRole("status")).toHaveTextContent(
+      "Règle créée : les prochaines dépenses contenant « PETROLEC SUD » iront dans « Carburant ».",
+    );
+    await waitFor(() => {
+      expect(serveur.document.banking.categoryRules[0]).toMatchObject({
+        contains: "PETROLEC SUD",
+        category: "Carburant",
+      });
+    });
+    // La règle ne touche pas la dépense déjà importée : sa correction reste un geste à part.
+    expect(serveur.document.expenses.find((d) => d.id === "bank:lcl:carte")?.category).toBeNull();
+
+    serveur.operations = [
+      ...OPERATIONS,
+      operation("carte2", { amountCents: 5210, label: "PETROLEC SUD", paymentDate: "2026-09-20" }),
+    ];
+    await resynchroniser();
+
+    await waitFor(() => expect(serveur.document.expenses).toHaveLength(3));
+    expect(serveur.document.expenses.find((d) => d.id === "bank:lcl:carte2")?.category).toBe(
+      "Carburant",
+    );
+    expect(serveur.document.expenses.find((d) => d.id === "bank:lcl:carte")?.category).toBeNull();
+  });
+
+  it("demande une catégorie avant de créer la règle, et refuse un motif trop court", async () => {
+    const utilisateur = userEvent.setup();
+    await ouvrirAppareil();
+    await ouvrirDetail(utilisateur, /Détail de PETROLEC SUD/);
+    const reglesAvant = serveur.document.banking.categoryRules.length;
+
+    await utilisateur.click(
+      journal().getByRole("button", { name: "Appliquer cette catégorie à ce commerçant…" }),
+    );
+    await utilisateur.click(journal().getByRole("button", { name: "Créer la règle" }));
+    expect(
+      journal().getByText("Saisissez d’abord une catégorie dans le champ « Catégorie »."),
+    ).toBeInTheDocument();
+
+    await utilisateur.type(journal().getByLabelText("Catégorie"), "Carburant");
+    const motif = journal().getByLabelText("Pour les opérations dont le libellé contient");
+    await utilisateur.clear(motif);
+    await utilisateur.type(motif, "P");
+    await utilisateur.click(journal().getByRole("button", { name: "Créer la règle" }));
+    expect(journal().getByText("Le motif doit faire entre 2 et 80 caractères.")).toBeInTheDocument();
+
+    expect(serveur.document.banking.categoryRules).toHaveLength(reglesAvant);
+  });
+
+  it("ne propose pas la règle pour une dépense saisie à la main", async () => {
+    const utilisateur = userEvent.setup();
+    serveur.document = {
+      ...serveur.document,
+      expenses: [{ id: "manuelle", amountCents: 990, date: "2026-09-12", label: "Marché", category: null }],
+    };
+    serveur.operations = [];
+    await ouvrirAppareil();
+    await ouvrirOnglet("Dépenses");
+    await utilisateur.click(await journal().findByRole("button", { name: /Détail de Marché/ }));
+
+    expect(
+      journal().queryByRole("button", { name: "Appliquer cette catégorie à ce commerçant…" }),
+    ).not.toBeInTheDocument();
+  });
+});

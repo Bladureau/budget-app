@@ -23,6 +23,7 @@ import { ReserveSettings } from "@/features/budget/components/reserve-settings";
 import { ReserveSummary } from "@/features/budget/components/reserve-summary";
 import { BankAlerts, BankPanel } from "@/features/banking/components/bank-panel";
 import { Inbox, InboxCount } from "@/features/banking/components/inbox";
+import { RuleList } from "@/features/banking/components/rule-list";
 import { TABS } from "@/features/navigation/navigation";
 import type { Tab } from "@/features/navigation/navigation";
 import { useActiveTab } from "@/features/navigation/use-active-tab";
@@ -160,6 +161,7 @@ export function BudgetView() {
             <Panneau tab="settings" actif={tab}>
               <ReserveSettings />
               <BankPanel />
+              <RuleList />
               <DataTransfer />
             </Panneau>
           </>

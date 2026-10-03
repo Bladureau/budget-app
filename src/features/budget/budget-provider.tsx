@@ -51,9 +51,15 @@ import type { ClientFailure } from "@/features/banking/client";
 import {
   classifyAsExpense,
   classifyAsIgnored,
+  addCategoryRule as withCategoryRule,
   classifyWithRule,
   processBatch,
+  removeRule,
+  updateCategoryRule as withCategoryRuleUpdate,
+  updateTreatmentRule as withTreatmentRuleUpdate,
 } from "@/features/banking/rules";
+import type { RuleEditFailure } from "@/features/banking/rules";
+
 import type { BankStatus } from "@/features/banking/types";
 import type {
   BankSource,
@@ -179,6 +185,15 @@ interface BudgetContextValue {
     contains: string,
     subscriptionId: string | null,
   ) => boolean;
+
+  /**
+   * Gestion des règles bancaires (fonctionnalité 006, récit 6). Rendent le motif du refus, ou
+   * `null` si la règle est enregistrée. Une règle ne vaut que pour les opérations à venir.
+   */
+  addCategoryRule: (contains: string, category: string) => RuleEditFailure | null;
+  updateCategoryRule: (id: string, contains: string, category: string) => RuleEditFailure | null;
+  updateTreatmentRule: (id: string, contains: string) => RuleEditFailure | null;
+  removeBankRule: (id: string) => void;
 
   /**
    * Réserve d'épargne (fonctionnalité 008). `balanceTodayCents` est le solde **du jour** : la
@@ -880,6 +895,43 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     [appliquer],
   );
 
+  const addCategoryRule = useCallback(
+    (contains: string, category: string): RuleEditFailure | null => {
+      const resultat = withCategoryRule(lireInstantaneClient(), { id: newId(), contains, category });
+      if (!resultat.ok) return resultat.reason;
+      appliquer(resultat.document);
+      return null;
+    },
+    [appliquer],
+  );
+
+  const updateCategoryRule = useCallback(
+    (id: string, contains: string, category: string): RuleEditFailure | null => {
+      const resultat = withCategoryRuleUpdate(lireInstantaneClient(), id, { contains, category });
+      if (!resultat.ok) return resultat.reason;
+      appliquer(resultat.document);
+      return null;
+    },
+    [appliquer],
+  );
+
+  const updateTreatmentRule = useCallback(
+    (id: string, contains: string): RuleEditFailure | null => {
+      const resultat = withTreatmentRuleUpdate(lireInstantaneClient(), id, contains);
+      if (!resultat.ok) return resultat.reason;
+      appliquer(resultat.document);
+      return null;
+    },
+    [appliquer],
+  );
+
+  const removeBankRule = useCallback(
+    (id: string) => {
+      appliquer(removeRule(lireInstantaneClient(), id));
+    },
+    [appliquer],
+  );
+
   // --- Export et import (fonctionnalité 004) -------------------------------------------
 
   const exportData = useCallback(() => {
@@ -978,6 +1030,10 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       classifyInboxAsExpense,
       classifyInboxAsIgnored,
       classifyInboxWithRule,
+      addCategoryRule,
+      updateCategoryRule,
+      updateTreatmentRule,
+      removeBankRule,
     }),
     [
       document,
@@ -1021,6 +1077,10 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       classifyInboxAsExpense,
       classifyInboxAsIgnored,
       classifyInboxWithRule,
+      addCategoryRule,
+      updateCategoryRule,
+      updateTreatmentRule,
+      removeBankRule,
     ],
   );
 

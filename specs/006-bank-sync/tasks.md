@@ -399,21 +399,27 @@ et « Reconnecter » ; reconnexion → aucun doublon.
 **Test indépendant** : modifier puis supprimer deux dépenses importées, resynchroniser,
 vérifier que tout tient.
 
-- [ ] T059 [P] [US6] Étendre `src/features/banking/bank-sync.integration.test.tsx` : dépense
+- [X] T059 [P] [US6] Étendre `src/features/banking/bank-sync.integration.test.tsx` : dépense
       importée modifiée (catégorie, libellé, montant, date) puis resynchronisation → modification
       conservée (EF-033) ; dépense importée supprimée → jamais réimportée (EF-034).
-- [ ] T060 [US6] Ajouter « Appliquer à ce commerçant » dans
+- [X] T060 [US6] Ajouter « Appliquer à ce commerçant » dans
       `src/features/budget/components/expense-detail.tsx` pour une dépense importée : crée une
       règle de catégorie **en tête** (motif proposé = libellé, modifiable), sans modifier les
       dépenses passées. Fonction pure `addCategoryRule` dans `src/features/banking/rules.ts`,
       testée dans `rules.test.ts`.
-- [ ] T061 [US6] Créer `src/features/banking/components/rule-list.tsx` : liste des règles de
+- [X] T061 [US6] Créer `src/features/banking/components/rule-list.tsx` : liste des règles de
       traitement et de catégorie, dans l'ordre d'évaluation, avec suppression et modification
       du motif ou de la catégorie ; règles initiales supprimables comme les autres.
-- [ ] T062 [US6] Créer `src/features/banking/components/rule-list.test.tsx` : suppression,
+- [X] T062 [US6] Créer `src/features/banking/components/rule-list.test.tsx` : suppression,
       modification, utilisation au clavier.
 
 **Point de contrôle** : quickstart §4, étape 9, passe.
+
+> **Réalisé le 2026-10-03**, après les fonctionnalités 007 et 008. Écarts : les fonctions pures
+> (`addCategoryRule`, `updateCategoryRule`, `updateTreatmentRule`, `removeRule`) sont testées dans
+> `src/features/banking/rule-editing.test.ts` plutôt que dans `rules.test.ts` ; la liste des règles
+> est placée dans l'onglet « Réglages », sous « Mes banques » ; la suppression d'une règle demande
+> une confirmation ; le bouton s'intitule « Appliquer cette catégorie à ce commerçant… ».
 
 ---
 
@@ -430,14 +436,14 @@ vérifier que tout tient.
 - [X] T064 [P] Documenter dans `README.md` les trois variables bancaires, l'emplacement de la clé
       (`data/enable-banking.pem`, propriétaire `1001`, mode `400`) et le comportement si elles
       sont absentes.
-- [ ] T065 [P] Vérifier que rien de `src/lib/server/` n'entre dans le graphe client : aucune
+- [X] T065 [P] Vérifier que rien de `src/lib/server/` n'entre dans le graphe client : aucune
       importation depuis un fichier `"use client"` ni depuis `src/features/` (recherche dans le
       dépôt), et `npm run build` sans avertissement à ce sujet.
-- [ ] T066 Exécuter `npm run build`, `npm run lint` et `npm test` : zéro erreur, nombre de tests
+- [X] T066 Exécuter `npm run build`, `npm run lint` et `npm test` : zéro erreur, nombre de tests
       supérieur à la référence de T001, aucun test antérieur modifié hors chemins d'import.
 - [ ] T067 Dérouler `specs/006-bank-sync/quickstart.md` sections 2, 4 et 5 sur le NAS avec les
       vraies banques, et consigner les résultats dans ce même fichier.
-- [ ] T068 Relire tous les artefacts et commentaires produits selon le principe VIII (français,
+- [X] T068 Relire tous les artefacts et commentaires produits selon le principe VIII (français,
       identifiants en anglais) et supprimer tout code mort ou commenté.
 
 ---
