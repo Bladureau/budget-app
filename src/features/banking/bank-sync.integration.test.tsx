@@ -11,6 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ouvrirOnglet, reinitialiserAdresse } from "@/test/navigation";
 
 import { emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument } from "@/features/budget/types";
@@ -135,6 +136,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  reinitialiserAdresse();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -155,7 +157,9 @@ function changerDAppareil(): void {
   localStorage.clear();
 }
 
-const journal = () => within(screen.getByRole("region", { name: "Mes dépenses" }));
+// Le journal vit dans l'onglet « Dépenses » (fonctionnalité 007) ; ces tests vérifient ce qui y
+// est inscrit, pas la navigation, d'où `hidden: true`.
+const journal = () => within(screen.getByRole("region", { name: "Mes dépenses", hidden: true }));
 
 describe("récit 1 — les paiements apparaissent tout seuls", () => {
   it("importe les paiements carte au jour du paiement, avec leur provenance", async () => {
@@ -252,8 +256,9 @@ describe("récit 5 — garder l'accès dans la durée", () => {
     expect(await screen.findAllByText(/L’accès à LCL expire dans \d+ jours/)).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Aller à « Mes banques »" })).toHaveAttribute(
       "href",
-      "#titre-banques",
+      "/?onglet=reglages#titre-banques",
     );
+    await ouvrirOnglet("Réglages");
     expect(screen.getByRole("button", { name: "Reconnecter LCL" })).toBeInTheDocument();
   });
 
@@ -284,8 +289,9 @@ describe("récit 3 — « À classer »", () => {
     await ouvrirAppareil();
 
     const compteur = await screen.findByRole("link", { name: "1 opération bancaire à classer" });
-    expect(compteur).toHaveAttribute("href", "#a-classer");
+    expect(compteur).toHaveAttribute("href", "/?onglet=depenses#a-classer");
 
+    await ouvrirOnglet("Dépenses");
     const liste = within(screen.getByRole("region", { name: "À classer" }));
     expect(liste.getByText("VIR SEPA Mme JEANNE DUPONT OU")).toBeInTheDocument();
     expect(serveur.document.expenses.some((d) => d.amountCents === 35000)).toBe(false);
@@ -300,6 +306,7 @@ describe("récit 3 — « À classer »", () => {
   it("classe un élément en dépense, au clavier, avec une catégorie", async () => {
     const utilisateur = userEvent.setup();
     await ouvrirAppareil();
+    await ouvrirOnglet("Dépenses");
 
     const liste = within(await screen.findByRole("region", { name: "À classer" }));
     liste.getByRole("button", { name: "Dépense" }).focus();
@@ -338,6 +345,7 @@ describe("récit 3 — « À classer »", () => {
     };
     serveur.operations = [operation("spotify", { amountCents: 707, label: "Spotify France" })];
     await ouvrirAppareil();
+    await ouvrirOnglet("Dépenses");
 
     const liste = within(await screen.findByRole("region", { name: "À classer" }));
     expect(liste.getByText(/Ressemble à un abonnement déjà saisi/)).toBeInTheDocument();
@@ -356,6 +364,7 @@ describe("récit 3 — « À classer »", () => {
   it("refuse un motif de règle trop court, puis ignore toujours ce bénéficiaire", async () => {
     const utilisateur = userEvent.setup();
     await ouvrirAppareil();
+    await ouvrirOnglet("Dépenses");
 
     const liste = within(await screen.findByRole("region", { name: "À classer" }));
     await utilisateur.click(liste.getByRole("button", { name: "Toujours ignorer…" }));

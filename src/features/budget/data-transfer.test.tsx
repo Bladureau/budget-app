@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { STORAGE_KEY } from "@/lib/storage";
+import { ouvrirOnglet, reinitialiserAdresse } from "@/test/navigation";
 import { APPLICATION_MARKER, FORMAT_VERSION } from "@/features/budget/transfer";
 import { emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument } from "@/features/budget/types";
@@ -97,6 +98,9 @@ async function monterVue() {
   await waitFor(() => {
     expect(screen.queryByText("Chargement…")).not.toBeInTheDocument();
   });
+
+  // « Vos données » est dans l'onglet « Réglages » (fonctionnalité 007).
+  await ouvrirOnglet("Réglages");
 }
 
 function sectionDonnees() {
@@ -115,6 +119,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  reinitialiserAdresse();
   vi.restoreAllMocks();
 });
 

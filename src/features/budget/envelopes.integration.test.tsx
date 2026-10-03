@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { STORAGE_KEY } from "@/lib/storage";
+import { ouvrirOnglet, reinitialiserAdresse } from "@/test/navigation";
 import { emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument, Envelope, Expense } from "@/features/budget/types";
 
@@ -68,6 +69,11 @@ async function monterVue() {
     </BudgetProvider>,
   );
 
+  await waitFor(() => {
+    expect(screen.queryByText("Chargement…")).not.toBeInTheDocument();
+  });
+  // Les enveloppes sont dans l'onglet « Dépenses » (fonctionnalité 007).
+  await ouvrirOnglet("Dépenses");
   await screen.findByRole("region", { name: "Enveloppes" });
 }
 
@@ -116,6 +122,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  reinitialiserAdresse();
   vi.restoreAllMocks();
 });
 
@@ -257,12 +264,15 @@ describe("Enveloppes — la dépense se répercute (récit 2, EF-010)", () => {
     const utilisateur = userEvent.setup();
     await monterVue();
 
+    // La saisie est dans « Aujourd’hui », l'enveloppe dans « Dépenses ».
+    await ouvrirOnglet("Aujourd’hui");
     const saisie = within(screen.getByRole("region", { name: "Nouvelle dépense" }));
     await utilisateur.type(saisie.getByLabelText("Montant"), "100");
     // La catégorie est dans le repli du formulaire de dépense.
     await utilisateur.click(saisie.getByText("Libellé, catégorie, date"));
     await utilisateur.type(saisie.getByLabelText("Catégorie"), "Courses");
     await utilisateur.click(saisie.getByRole("button", { name: "Enregistrer" }));
+    await ouvrirOnglet("Dépenses");
 
     // 400,00 € − 100,00 € = 300,00 € restants, et l'enveloppe devient « maîtrisée ».
     await waitFor(() => {

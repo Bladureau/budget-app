@@ -66,16 +66,17 @@ export const RING_STATUS_LABELS: Readonly<Record<RingStatus, string>> = {
   overspent: "Dépassement",
 };
 
+// Sans « ci-dessous » ni « ci-dessus » : revenus, saisie et journal vivent dans des onglets
+// différents (fonctionnalité 007). Le composant ajoute un lien vers l'onglet concerné.
 export const NO_BUDGET_YET =
-  "Renseignez vos revenus et vos abonnements ci-dessous pour connaître ce qu’il vous reste à dépenser.";
+  "Renseignez vos revenus et vos abonnements pour connaître ce qu’il vous reste à dépenser.";
 
 export const NOTHING_LEFT_TO_SPREAD =
   "Il n’y a plus rien à répartir sur les jours restants de ce mois.";
 
 export const NO_CARRY_OVER = "Premier jour du mois : pas de report.";
 
-export const EMPTY_JOURNAL =
-  "Aucune dépense enregistrée. Saisissez-en une ci-dessus pour commencer.";
+export const EMPTY_JOURNAL = "Aucune dépense enregistrée.";
 
 export const NO_SEARCH_RESULT = "Aucune dépense ne correspond à cette recherche.";
 

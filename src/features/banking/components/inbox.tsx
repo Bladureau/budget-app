@@ -12,6 +12,7 @@ import type { InboxItem } from "@/features/banking/types";
 import { INBOX_REASON_MESSAGES, INVALID_PATTERN } from "@/features/banking/messages";
 import { formatIsoDateFr } from "@/lib/format";
 import { formatCents } from "@/lib/money";
+import { TabLink } from "@/features/navigation/components/tab-link";
 
 type Mode = "aucun" | "depense" | "regle" | "abonnement";
 
@@ -203,7 +204,10 @@ export function Inbox() {
   );
 }
 
-/** Compteur visible dès l'ouverture (EF-026), avec un lien vers la liste. */
+/**
+ * Compteur visible dès l'ouverture (EF-026), avec un lien vers la liste, rangée dans l'onglet
+ * « Dépenses » (specs/007-navigation-menu, FR-011).
+ */
 export function InboxCount() {
   const { document } = useBudget();
   const nombre = document.banking.inbox.length;
@@ -211,9 +215,9 @@ export function InboxCount() {
 
   return (
     <p className="rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-sm font-medium">
-      <a href="#a-classer" className="underline">
+      <TabLink tab="expenses" section="a-classer" className="underline">
         {nombre === 1 ? "1 opération bancaire à classer" : `${nombre} opérations bancaires à classer`}
-      </a>
+      </TabLink>
     </p>
   );
 }
