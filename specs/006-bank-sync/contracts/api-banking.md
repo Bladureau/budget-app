@@ -124,15 +124,16 @@ Retour de la banque. **Seul point d'entrée non contrôlé par le cookie** (R4).
 
 | Cas | Effet | Réponse |
 | --- | --- | --- |
-| `state` inconnu, expiré ou déjà consommé | aucun | `303` vers `/?banking=invalidState` |
-| `error` présent (refus, `server_error`) | `state` consommé | `303` vers `/?banking=error` |
-| `code` valide, session sans compte | `state` consommé, connexion en erreur `noAccount` | `303` vers `/?banking=noAccount` |
-| `code` valide, première liaison, aucun compte, ou plusieurs comptes dont aucun ou plusieurs en `EUR` | `state` consommé, rien enregistré | `303` vers `/?banking=noAccount` |
-| `code` valide, renouvellement, aucun compte d'empreinte `ibanHash` | `state` consommé, ancienne session **conservée**, `lastError: noAccount` | `303` vers `/?banking=noAccount` |
-| `code` valide, compte trouvé (data-model §3) | session créée, connexion enregistrée ou **remplacée** (renouvellement) | `303` vers `/?banking=connected` |
+| `state` inconnu, expiré ou déjà consommé | aucun | `303` vers `/?onglet=reglages&banking=invalidState` |
+| `error` présent (refus, `server_error`) | `state` consommé | `303` vers `/?onglet=reglages&banking=error` |
+| `code` valide, session sans compte | `state` consommé, connexion en erreur `noAccount` | `303` vers `/?onglet=reglages&banking=noAccount` |
+| `code` valide, première liaison, aucun compte, ou plusieurs comptes dont aucun ou plusieurs en `EUR` | `state` consommé, rien enregistré | `303` vers `/?onglet=reglages&banking=noAccount` |
+| `code` valide, renouvellement, aucun compte d'empreinte `ibanHash` | `state` consommé, ancienne session **conservée**, `lastError: noAccount` | `303` vers `/?onglet=reglages&banking=noAccount` |
+| `code` valide, compte trouvé (data-model §3) | session créée, connexion enregistrée ou **remplacée** (renouvellement) | `303` vers `/?onglet=reglages&banking=connected` |
 
-Le paramètre `banking` sert uniquement à afficher un message ; l'application le retire de
-l'URL après lecture. Le cas `noAccount` est celui constaté lors de l'essai quand le compte
+Le paramètre `onglet=reglages` ouvre l'onglet du panneau des banques (ajouté par la
+fonctionnalité 007, voir `specs/007-navigation-menu/contracts/navigation.md` §4). Le paramètre
+`banking` sert uniquement à afficher un message ; l'application le retire de l'URL après lecture. Le cas `noAccount` est celui constaté lors de l'essai quand le compte
 n'était pas lié dans le portail d'Enable Banking : le message l'explique.
 
 **Remplacement d'une connexion** : le cache d'opérations est **conservé**, puisque les `ref`

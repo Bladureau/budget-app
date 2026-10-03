@@ -197,7 +197,7 @@ describe("GET /api/banking/callback", () => {
     const reponse = await getCallback(retour({ state, code: "code" }));
 
     expect(reponse.status).toBe(303);
-    expect(reponse.headers.get("Location")).toBe("/?banking=connected");
+    expect(reponse.headers.get("Location")).toBe("/?onglet=reglages&banking=connected");
     const { state: banque } = await readBanking();
     expect(banque.connections[0]).toMatchObject({
       bank: "lcl",
@@ -209,7 +209,7 @@ describe("GET /api/banking/callback", () => {
 
   it("refuse un state inconnu", async () => {
     const reponse = await getCallback(retour({ state: "inconnu", code: "code" }));
-    expect(reponse.headers.get("Location")).toBe("/?banking=invalidState");
+    expect(reponse.headers.get("Location")).toBe("/?onglet=reglages&banking=invalidState");
     expect(fetchSimule).not.toHaveBeenCalled();
   });
 
@@ -219,7 +219,7 @@ describe("GET /api/banking/callback", () => {
     await getCallback(retour({ state, code: "code" }));
 
     const rejeu = await getCallback(retour({ state, code: "code" }));
-    expect(rejeu.headers.get("Location")).toBe("/?banking=invalidState");
+    expect(rejeu.headers.get("Location")).toBe("/?onglet=reglages&banking=invalidState");
   });
 
   it("refuse un state expiré", async () => {
@@ -227,7 +227,7 @@ describe("GET /api/banking/callback", () => {
     vi.useFakeTimers({ now: Date.now() + 16 * 60_000 });
     try {
       const reponse = await getCallback(retour({ state, code: "code" }));
-      expect(reponse.headers.get("Location")).toBe("/?banking=invalidState");
+      expect(reponse.headers.get("Location")).toBe("/?onglet=reglages&banking=invalidState");
     } finally {
       vi.useRealTimers();
     }
@@ -236,7 +236,7 @@ describe("GET /api/banking/callback", () => {
   it("signale l'erreur renvoyée par la banque", async () => {
     const state = await demarrerLiaison("lcl");
     const reponse = await getCallback(retour({ state, error: "server_error" }));
-    expect(reponse.headers.get("Location")).toBe("/?banking=error");
+    expect(reponse.headers.get("Location")).toBe("/?onglet=reglages&banking=error");
   });
 
   it("signale une session sans compte, sans rien enregistrer", async () => {
@@ -244,7 +244,7 @@ describe("GET /api/banking/callback", () => {
     fetchSimule.mockResolvedValueOnce(sessionAvec([]));
 
     const reponse = await getCallback(retour({ state, code: "code" }));
-    expect(reponse.headers.get("Location")).toBe("/?banking=noAccount");
+    expect(reponse.headers.get("Location")).toBe("/?onglet=reglages&banking=noAccount");
     expect((await readBanking()).state.connections).toEqual([]);
   });
 
@@ -258,7 +258,7 @@ describe("GET /api/banking/callback", () => {
     );
 
     const reponse = await getCallback(retour({ state, code: "code" }));
-    expect(reponse.headers.get("Location")).toBe("/?banking=noAccount");
+    expect(reponse.headers.get("Location")).toBe("/?onglet=reglages&banking=noAccount");
   });
 
   it("retient un compte seul même annoncé sans devise (LCL annonce « XXX »)", async () => {
@@ -267,7 +267,7 @@ describe("GET /api/banking/callback", () => {
 
     const reponse = await getCallback(retour({ state, code: "code" }));
 
-    expect(reponse.headers.get("Location")).toBe("/?banking=connected");
+    expect(reponse.headers.get("Location")).toBe("/?onglet=reglages&banking=connected");
     expect((await readBanking()).state.connections[0].ibanSuffix).toBe("0Y53");
   });
 
@@ -298,7 +298,7 @@ describe("GET /api/banking/callback", () => {
     );
     const reponse = await getCallback(retour({ state, code: "code" }));
 
-    expect(reponse.headers.get("Location")).toBe("/?banking=noAccount");
+    expect(reponse.headers.get("Location")).toBe("/?onglet=reglages&banking=noAccount");
     const connexion = (await readBanking()).state.connections[0];
     expect(connexion.sessionId).toBe("session-secrete");
     expect(connexion.lastError).toBe("noAccount");

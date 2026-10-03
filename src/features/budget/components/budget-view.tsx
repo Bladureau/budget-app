@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import type { ReactNode } from "react";
 import { useBudget } from "@/features/budget/budget-provider";
 import { StorageNotice } from "@/features/budget/components/storage-notice";
 import { SyncStatus } from "@/features/budget/components/sync-status";
@@ -19,6 +21,11 @@ import { ForecastView } from "@/features/budget/components/forecast-view";
 import { DataTransfer } from "@/features/budget/components/data-transfer";
 import { BankAlerts, BankPanel } from "@/features/banking/components/bank-panel";
 import { Inbox, InboxCount } from "@/features/banking/components/inbox";
+import { TABS } from "@/features/navigation/navigation";
+import type { Tab } from "@/features/navigation/navigation";
+import { useActiveTab } from "@/features/navigation/use-active-tab";
+import { TabBar } from "@/features/navigation/components/tab-bar";
+import { TabLink } from "@/features/navigation/components/tab-link";
 
 /**
  * Premier lancement : le stockage central est vide.
@@ -48,26 +55,61 @@ function PremierLancement() {
     >
       <p className="font-semibold">Votre budget est vide.</p>
       <p className="mt-1 text-[var(--muted)]">
-        Saisissez une première dépense ci-dessous, ou restaurez une sauvegarde depuis la
-        section « Vos données » en bas de page. Ce que vous enregistrerez ici se retrouvera
-        sur vos autres appareils.
+        Saisissez une première dépense ci-dessous, ou restaurez une sauvegarde depuis{" "}
+        <TabLink tab="settings" section="titre-donnees" className="underline">
+          l’onglet Réglages
+        </TabLink>
+        . Ce que vous enregistrerez ici se retrouvera sur vos autres appareils.
       </p>
     </section>
   );
 }
 
 /**
- * Vue complète.
+ * Nom du panneau pour les technologies d'assistance. Préfixé : la section du reste du jour
+ * s'appelle déjà « Aujourd'hui », et deux régions homonymes imbriquées seraient ambiguës.
+ */
+function nomDuPanneau(tab: Tab): string {
+  return `Onglet ${TABS.find((definition) => definition.tab === tab)?.label ?? tab}`;
+}
+
+/**
+ * Panneau d'un onglet. Tous restent montés, l'inactif est seulement `hidden` (R3) : une saisie
+ * en cours survit ainsi au changement d'onglet sans qu'aucun formulaire n'ait à la conserver.
+ */
+function Panneau({ tab, actif, children }: { tab: Tab; actif: Tab; children: ReactNode }) {
+  return (
+    <section aria-label={nomDuPanneau(tab)} hidden={tab !== actif} className="space-y-8">
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Vue complète, découpée en onglets (specs/007-navigation-menu).
  *
- * L'ordre traduit une hiérarchie d'usage : l'anneau et l'allocation se consultent plusieurs
- * fois par jour, le budget prévisionnel une fois par mois. Le prévisionnel de la
- * fonctionnalité 002 passe donc sous le quotidien, dans un repli.
+ * La hiérarchie d'usage passe par les onglets : « Aujourd'hui », qui s'ouvre par défaut, réunit
+ * ce qui se consulte plusieurs fois par jour ; « Mois » le budget prévisionnel, consulté une fois
+ * par mois ; « Réglages » ce qui sert rarement. L'en-tête et les bandeaux de synchronisation
+ * restent au-dessus, quel que soit l'onglet.
  */
 export function BudgetView() {
   const { ready } = useBudget();
+  const { tab, section } = useActiveTab();
+
+  // Amène à l'écran la section visée par l'adresse (`#a-classer`…), une fois son panneau
+  // affiché : un élément `hidden` ne peut pas défiler, d'où l'effet après validation du rendu
+  // plutôt qu'un défilement au moment du clic.
+  useEffect(() => {
+    if (!ready || section === null) return;
+    document.getElementById(section)?.scrollIntoView({ block: "start" });
+  }, [ready, tab, section]);
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+    // Sous `sm`, le bas réserve la hauteur de la barre d'onglets fixe et de la zone système, pour
+    // que le dernier élément d'un onglet ne soit jamais recouvert. Les marges latérales tiennent
+    // compte des encoches, que `viewportFit: "cover"` laisse empiéter sur la page en paysage.
+    <main className="mx-auto w-full max-w-3xl pt-8 pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(5rem+env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] sm:px-6 sm:pb-8">
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Budget</h1>
@@ -80,38 +122,42 @@ export function BudgetView() {
         {ready ? <MonthNavigator /> : null}
       </header>
 
+      {ready ? <TabBar /> : null}
+
       <div className="space-y-8">
         <SyncStatus />
         <ConflictDialog />
         <StorageNotice />
         {ready ? (
           <>
-            <PremierLancement />
-            <BankAlerts />
-            <InboxCount />
-            <BudgetRing />
-            <DailyAllowance />
-            <ExpenseForm />
-            <Inbox />
-            <ExpenseJournal />
-            <EnvelopeList />
-            <BankPanel />
+            <Panneau tab="today" actif={tab}>
+              <PremierLancement />
+              <BankAlerts />
+              <InboxCount />
+              <BudgetRing />
+              <DailyAllowance />
+              <ExpenseForm />
+            </Panneau>
 
-            <details className="rounded-lg border border-[var(--border)] p-4">
-              <summary className="cursor-pointer font-medium">
-                Budget prévisionnel du mois
-              </summary>
-              <div className="mt-6 space-y-8">
-                <MonthSummary />
-                <IncomeList />
-                <SubscriptionList />
-                <ChargeBreakdown />
-                <UpcomingDues />
-                <ForecastView />
-              </div>
-            </details>
+            <Panneau tab="expenses" actif={tab}>
+              <Inbox />
+              <ExpenseJournal />
+              <EnvelopeList />
+            </Panneau>
 
-            <DataTransfer />
+            <Panneau tab="month" actif={tab}>
+              <MonthSummary />
+              <IncomeList />
+              <SubscriptionList />
+              <ChargeBreakdown />
+              <UpcomingDues />
+              <ForecastView />
+            </Panneau>
+
+            <Panneau tab="settings" actif={tab}>
+              <BankPanel />
+              <DataTransfer />
+            </Panneau>
           </>
         ) : (
           <p className="text-sm text-[var(--muted)]">Chargement…</p>

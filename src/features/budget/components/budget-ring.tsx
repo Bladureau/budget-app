@@ -6,6 +6,7 @@ import { NO_BUDGET_YET, RING_STATUS_LABELS } from "@/features/budget/messages";
 import type { RingStatus } from "@/features/budget/types";
 import { formatCents } from "@/lib/money";
 import { formatMonthFr } from "@/lib/format";
+import { TabLink } from "@/features/navigation/components/tab-link";
 
 const COULEURS: Readonly<Record<RingStatus, string>> = {
   untouched: "var(--surplus)",
@@ -102,7 +103,12 @@ export function BudgetRing() {
           </p>
 
           {sansBudget ? (
-            <p className="text-sm text-[var(--muted)]">{NO_BUDGET_YET}</p>
+            <p className="text-sm text-[var(--muted)]">
+              {NO_BUDGET_YET}{" "}
+              <TabLink tab="month" section="titre-revenus" className="underline">
+                Ouvrir l’onglet Mois
+              </TabLink>
+            </p>
           ) : (
             <dl className="grid grid-cols-2 gap-3 text-sm">
               <div>

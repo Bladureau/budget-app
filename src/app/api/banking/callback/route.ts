@@ -8,7 +8,8 @@
  * banque. L'autorisation repose sur le `state`, émis pour un appareil autorisé, à usage unique
  * et valable 15 minutes (R4). Sans `state` valide, rien n'est fait.
  *
- * La réponse est toujours une redirection `303` vers `/` avec un paramètre `banking` qui sert
+ * La réponse est toujours une redirection `303` vers `/?onglet=reglages`, l'onglet du panneau
+ * des banques (specs/007-navigation-menu, FR-018), avec un paramètre `banking` qui sert
  * seulement à afficher un message. L'en-tête `Location` est **relatif** : derrière le proxy
  * inverse, l'origine vue par le serveur (`http://0.0.0.0:3000`) n'est pas celle du navigateur.
  */
@@ -32,7 +33,10 @@ import type { BankConnection } from "@/lib/server/banking/banking-store";
 type CallbackOutcome = "connected" | "error" | "noAccount" | "invalidState";
 
 function retour(issue: CallbackOutcome): Response {
-  return new Response(null, { status: 303, headers: { Location: `/?banking=${issue}` } });
+  return new Response(null, {
+    status: 303,
+    headers: { Location: `/?onglet=reglages&banking=${issue}` },
+  });
 }
 
 /**

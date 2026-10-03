@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { STORAGE_KEY } from "@/lib/storage";
+import { ouvrirOnglet, reinitialiserAdresse } from "@/test/navigation";
 import { DOCUMENT_VERSION, emptyDocument } from "@/features/budget/types";
 import type { BudgetDocument } from "@/features/budget/types";
 
@@ -40,7 +41,7 @@ function documentAvecBudget(expenses: BudgetDocument["expenses"] = []): BudgetDo
   };
 }
 
-async function monterVue() {
+async function monterVue(onglet?: string) {
   vi.resetModules();
   const { BudgetProvider } = await import("@/features/budget/budget-provider");
   const { BudgetView } = await import("@/features/budget/components/budget-view");
@@ -54,6 +55,8 @@ async function monterVue() {
   await waitFor(() => {
     expect(screen.queryByText("Chargement…")).not.toBeInTheDocument();
   });
+
+  if (onglet) await ouvrirOnglet(onglet);
 }
 
 function normaliser(valeur: string): string {
@@ -80,6 +83,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  reinitialiserAdresse();
   vi.restoreAllMocks();
 });
 
@@ -99,7 +103,8 @@ describe("Tableau de bord — saisie d'une dépense (scénario 2)", () => {
       ).toContain("877,50");
     });
 
-    // Et le journal l'affiche.
+    // Et le journal, dans l'onglet « Dépenses », l'affiche.
+    await ouvrirOnglet("Dépenses");
     expect(sectionJournal().getByText("Dépense")).toBeInTheDocument();
   });
 
@@ -231,7 +236,7 @@ describe("Tableau de bord — journal (scénario 7)", () => {
   });
 
   it("regroupe par journée avec un sous-total exact (EF-025)", async () => {
-    await monterVue();
+    await monterVue("Dépenses");
     const journal = sectionJournal();
 
     // Les deux dépenses du jour font 35,00 € ; celle d'hier 40,00 €.
@@ -241,7 +246,7 @@ describe("Tableau de bord — journal (scénario 7)", () => {
 
   it("trouve « Café » en tapant « cafe » (EF-026)", async () => {
     const utilisateur = userEvent.setup();
-    await monterVue();
+    await monterVue("Dépenses");
 
     await utilisateur.type(sectionJournal().getByLabelText("Rechercher"), "cafe");
 
@@ -253,7 +258,7 @@ describe("Tableau de bord — journal (scénario 7)", () => {
 
   it("propose d'effacer une recherche sans résultat (EF-029)", async () => {
     const utilisateur = userEvent.setup();
-    await monterVue();
+    await monterVue("Dépenses");
 
     await utilisateur.type(sectionJournal().getByLabelText("Rechercher"), "introuvable");
 
@@ -267,7 +272,7 @@ describe("Tableau de bord — journal (scénario 7)", () => {
 
   it("affiche un message quand aucune dépense n'existe", async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(documentAvecBudget()));
-    await monterVue();
+    await monterVue("Dépenses");
 
     expect(sectionJournal().getByText(/Aucune dépense enregistrée/)).toBeInTheDocument();
   });
@@ -299,6 +304,7 @@ describe("Tableau de bord — budget volumineux (CS-005)", () => {
     const duree = performance.now() - debut;
 
     // Le journal est bien rendu, pas seulement le squelette.
+    await ouvrirOnglet("Dépenses");
     expect(screen.getByRole("region", { name: "Mes dépenses" })).toBeInTheDocument();
 
     // Seuil large et volontairement peu strict : il ne mesure pas une performance, il

@@ -10,6 +10,7 @@ import { compareIso, monthKeyOf } from "@/lib/date";
 import { formatCents, sumCents } from "@/lib/money";
 import { formatIsoDateFr, formatMonthFr } from "@/lib/format";
 import { BANK_LABELS } from "@/features/banking/types";
+import { TabLink } from "@/features/navigation/components/tab-link";
 
 /** Nombre de dépenses affichées d'emblée, puis ajoutées à chaque extension. */
 const TAILLE_TRANCHE = 50;
@@ -122,7 +123,12 @@ export function ExpenseJournal() {
       </div>
 
       {journalVide ? (
-        <p className="text-sm text-[var(--muted)]">{EMPTY_JOURNAL}</p>
+        <p className="text-sm text-[var(--muted)]">
+          {EMPTY_JOURNAL}{" "}
+          <TabLink tab="today" section="titre-saisie" className="underline">
+            Saisir une dépense
+          </TabLink>
+        </p>
       ) : (
         <>
           <div className="flex flex-wrap gap-3">

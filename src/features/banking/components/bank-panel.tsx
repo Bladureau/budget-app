@@ -21,6 +21,7 @@ import { bankDisplay } from "@/features/banking/bank-status";
 import { formatIsoDateFr } from "@/lib/format";
 import { isValidIsoDate, monthKeyOf, startOfMonth } from "@/lib/date";
 import type { BankSource } from "@/features/budget/types";
+import { TabLink } from "@/features/navigation/components/tab-link";
 
 const formateurHorodatage = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "short",
@@ -43,8 +44,9 @@ function maintenantDuJour(today: string): Date {
 }
 
 /**
- * Alertes bancaires visibles dès l'ouverture (EF-004, EF-005), en haut de la page : une
- * autorisation qui expire ne doit jamais passer inaperçue plus d'une journée (CS-008).
+ * Alertes bancaires visibles dès l'ouverture (EF-004, EF-005), en tête de l'onglet
+ * « Aujourd'hui » : une autorisation qui expire ne doit jamais passer inaperçue plus d'une
+ * journée (CS-008). Le lien mène au panneau des banques, dans « Réglages » (007, FR-012).
  */
 export function BankAlerts() {
   const { bankStatus, today } = useBudget();
@@ -60,9 +62,9 @@ export function BankAlerts() {
       {alertes.map((affichage) => (
         <p key={affichage.message} className="font-medium">
           {affichage.message}{" "}
-          <a href="#titre-banques" className="underline">
+          <TabLink tab="settings" section="titre-banques" className="underline">
             Aller à « Mes banques »
-          </a>
+          </TabLink>
         </p>
       ))}
     </div>

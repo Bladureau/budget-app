@@ -115,9 +115,14 @@ function sectionSaisie() {
   return within(screen.getByRole("region", { name: "Nouvelle dépense" }));
 }
 
-/** Le montant apparaît à plusieurs endroits de la vue ; le journal est celui qui fait foi. */
+/**
+ * Le montant apparaît à plusieurs endroits de la vue ; le journal est celui qui fait foi.
+ *
+ * Il vit dans l'onglet « Dépenses », masqué à l'ouverture (fonctionnalité 007) : ces tests
+ * portent sur les données synchronisées, pas sur la navigation, d'où `hidden: true`.
+ */
 function sectionJournal() {
-  return within(screen.getByRole("region", { name: "Mes dépenses" }));
+  return within(screen.getByRole("region", { name: "Mes dépenses", hidden: true }));
 }
 
 async function saisirDepense(montant: string) {
