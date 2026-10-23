@@ -10,6 +10,7 @@ describe("parseTab", () => {
   it("reconnaît chaque valeur connue", () => {
     expect(parseTab("?onglet=depenses")).toBe("expenses");
     expect(parseTab("?onglet=mois")).toBe("month");
+    expect(parseTab("?onglet=assistant")).toBe("assistant");
     expect(parseTab("?onglet=reglages")).toBe("settings");
   });
 
@@ -17,6 +18,7 @@ describe("parseTab", () => {
     expect(parseTab("?onglet=")).toBe("today");
     expect(parseTab("?onglet=inconnu")).toBe("today");
     expect(parseTab("?onglet=MOIS")).toBe("today");
+    expect(parseTab("?onglet=Assistant")).toBe("today");
   });
 
   it("ignore les autres paramètres", () => {
@@ -37,6 +39,7 @@ describe("tabHref", () => {
   it("porte l'onglet en paramètre, et la section en fragment", () => {
     expect(tabHref("expenses")).toBe("/?onglet=depenses");
     expect(tabHref("month")).toBe("/?onglet=mois");
+    expect(tabHref("assistant")).toBe("/?onglet=assistant");
     expect(tabHref("settings")).toBe("/?onglet=reglages");
     expect(tabHref("expenses", "a-classer")).toBe("/?onglet=depenses#a-classer");
   });
@@ -46,5 +49,29 @@ describe("tabHref", () => {
       const url = new URL(tabHref(tab), "http://exemple.test");
       expect(parseTab(url.search)).toBe(tab);
     }
+  });
+});
+
+describe("TABS", () => {
+  it("compte cinq onglets, dans l'ordre du menu (fonctionnalité 009)", () => {
+    expect(TABS.map(({ tab }) => tab)).toEqual([
+      "today",
+      "expenses",
+      "month",
+      "assistant",
+      "settings",
+    ]);
+    expect(TABS.map(({ label }) => label)).toEqual([
+      "Aujourd’hui",
+      "Dépenses",
+      "Mois",
+      "Assistant",
+      "Réglages",
+    ]);
+  });
+
+  it("n'attribue jamais deux fois le même paramètre d'adresse", () => {
+    const parametres = TABS.map(({ param }) => param);
+    expect(new Set(parametres).size).toBe(parametres.length);
   });
 });

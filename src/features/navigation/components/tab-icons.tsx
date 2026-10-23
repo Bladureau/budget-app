@@ -3,7 +3,7 @@ import type { Tab } from "@/features/navigation/navigation";
 
 /**
  * Pictogrammes du menu, tracés à la main (R8) : une bibliothèque d'icônes serait une dépendance
- * pour quatre dessins. Décoratifs : le libellé visible porte le sens.
+ * pour cinq dessins. Décoratifs : le libellé visible porte le sens.
  */
 function Icone({ children }: { children: JSX.Element | JSX.Element[] }) {
   return (
@@ -61,9 +61,19 @@ function Engrenage() {
   );
 }
 
+function Bulle() {
+  return (
+    <Icone>
+      <path d="M21 12a8 8 0 0 1-11.5 7.2L3 21l1.8-5.5A8 8 0 1 1 21 12z" />
+      <path d="M8.5 11h.01M12 11h.01M15.5 11h.01" />
+    </Icone>
+  );
+}
+
 export const TAB_ICONS: Record<Tab, () => JSX.Element> = {
   today: Soleil,
   expenses: Liste,
   month: Calendrier,
+  assistant: Bulle,
   settings: Engrenage,
 };

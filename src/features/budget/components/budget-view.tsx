@@ -23,6 +23,7 @@ import { ReserveSettings } from "@/features/budget/components/reserve-settings";
 import { ReserveSummary } from "@/features/budget/components/reserve-summary";
 import { BankAlerts, BankPanel } from "@/features/banking/components/bank-panel";
 import { Inbox, InboxCount } from "@/features/banking/components/inbox";
+import { AssistantPanel } from "@/features/assistant/components/assistant-panel";
 import { RuleList } from "@/features/banking/components/rule-list";
 import { TABS } from "@/features/navigation/navigation";
 import type { Tab } from "@/features/navigation/navigation";
@@ -97,7 +98,7 @@ function Panneau({ tab, actif, children }: { tab: Tab; actif: Tab; children: Rea
  * restent au-dessus, quel que soit l'onglet.
  */
 export function BudgetView() {
-  const { ready } = useBudget();
+  const { ready, selectedMonth } = useBudget();
   const { tab, section } = useActiveTab();
 
   // Amène à l'écran la section visée par l'adresse (`#a-classer`…), une fois son panneau
@@ -156,6 +157,11 @@ export function BudgetView() {
               <ChargeBreakdown />
               <UpcomingDues />
               <ForecastView />
+            </Panneau>
+
+            {/* Remonté à chaque changement de mois : la conversation repart de zéro (EF-014). */}
+            <Panneau tab="assistant" actif={tab}>
+              <AssistantPanel key={selectedMonth} />
             </Panneau>
 
             <Panneau tab="settings" actif={tab}>

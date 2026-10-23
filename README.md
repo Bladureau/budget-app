@@ -47,6 +47,13 @@ récurrentes payées ?**
   fonctionner** : vous consultez et vous saisissez, et ce qui n'est pas encore parti est signalé
   puis synchronisé de lui-même au retour du réseau. Si deux appareils ont modifié le budget sans
   s'être vus, rien n'est écrasé en silence — c'est vous qui tranchez.
+- **Assistant du budget (IA locale)**, facultatif : un onglet « Assistant » répond en français à des
+  questions sur le mois affiché (« combien ai-je dépensé en courses ? », « qu'ai-je payé chez
+  Carrefour ? »). **L'IA tourne sur votre serveur** : vos données ne vont nulle part ailleurs. Elle ne
+  calcule rien : chaque montant est calculé par l'application, au centime, et la réponse signale tout
+  montant qui n'a pas été fourni par l'application. Lecture seule, aucune écriture. Une réponse en
+  cours s'annule ; si l'IA est arrêtée, l'assistant se dit indisponible et tout le reste du budget
+  fonctionne normalement.
 - **Synchronisation bancaire (LCL, Revolut)**, facultative : vos paiements carte entrent seuls au
   journal, datés du jour du paiement, en lecture seule via Enable Banking. Rien n'est compté deux
   fois — recharges Revolut, abonnements déjà saisis, loyer, revenus sont écartés — et ce qu'aucune
@@ -138,6 +145,42 @@ Dans l'application, panneau **« Mes banques »** :
 3. Les opérations sont récupérées à chaque ouverture de l'application, au plus une fois toutes
    les 6 heures par banque, ou à la demande (« Synchroniser les banques »). Le serveur peut être
    éteint entre-temps : rien n'est perdu, tout est rattrapé à l'ouverture suivante.
+
+## Configuration de l'assistant (IA locale)
+
+L'assistant (fonctionnalité 009) interroge **Ollama**, une IA que vous hébergez vous-même sur le même
+serveur. Elle n'a aucun mot de passe : son port n'est **jamais** publié, et seuls les conteneurs du
+réseau Docker `ollama` peuvent l'appeler. Le navigateur ne l'appelle jamais directement : tout passe
+par la route `/api/assistant` de l'application, protégée comme le reste.
+
+| Variable | Rôle | Défaut |
+| --- | --- | --- |
+| `OLLAMA_URL` | Adresse **interne** d'Ollama. | `http://ollama:11434` |
+| `OLLAMA_MODEL` | Modèle interrogé. | `qwen3.5:9b` |
+
+**Les deux sont facultatives.** Sans IA, l'assistant se dit indisponible et le reste du budget
+fonctionne normalement.
+
+Déploiement avec Docker :
+
+1. **Démarrez d'abord la pile Ollama** : elle crée le réseau `ollama` dont `docker-compose.yml` a
+   besoin. S'il n'existe pas, `docker compose up` refuse de démarrer **toute** l'application. Pour le
+   créer à vide : `docker network inspect ollama >/dev/null 2>&1 || docker network create ollama`.
+2. Vérifiez que l'application joint l'IA :
+
+   ```bash
+   docker exec budget-app node -e "fetch(process.env.OLLAMA_URL + '/api/tags').then(r => r.json()).then(j => console.log(j.models.map(m => m.name)))"
+   ```
+
+3. Vérifiez qu'Ollama n'est **pas** joignable depuis le reste du réseau local :
+   `curl -m 5 http://<ip-du-serveur>:11434/api/tags` doit échouer.
+
+Pour développer avec `npm run dev` hors Docker, publiez le port d'Ollama **sur la boucle locale
+seulement** (`127.0.0.1:11434:11434`, jamais `11434:11434`) et mettez
+`OLLAMA_URL=http://127.0.0.1:11434` dans `.env.local`.
+
+Le premier appel après dix minutes d'inactivité charge le modèle (environ 30 secondes) : l'interface
+l'indique. Le guide complet est dans [docs/ia-locale-ollama.md](docs/ia-locale-ollama.md).
 
 ## Protéger l'accès
 
@@ -309,8 +352,10 @@ Le navigateur détient la copie de travail ; une route d'API expose la référen
 src/
 ├── app/
 │   ├── api/budget/route.ts   Lecture et écriture du budget central (GET, PUT)
+│   ├── api/assistant/        Réponses de l'assistant en flux (POST), lecture seule
 │   ├── authorize/            Échange du jeton contre un cookie httpOnly
 │   └── …                     Coquille serveur et styles globaux
+├── features/assistant/       Contexte budgétaire, contrôle des montants, conversation, interface
 ├── features/budget/
 │   ├── budget-provider.tsx   Frontière cliente : état, chargement, écriture, synchronisation
 │   ├── sync.ts               Protocole client : lecture, poussée, conflit
