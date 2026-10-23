@@ -27,6 +27,9 @@ vitest.setup.ts
 **/*.test.ts
 **/*.test.tsx
 
+# Utilitaires de test : leurs types (`toBeVisible`…) viennent de vitest.setup.ts, exclu ci-dessus.
+src/test
+
 .DS_Store
 Thumbs.db
 *.log

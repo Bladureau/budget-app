@@ -6,6 +6,9 @@
 #  - le jeton n'y figure pas, il vient de `.env` (non versionné) ;
 #  - le port n'est publié que sur la boucle locale, Caddy étant seul à joindre l'application.
 
+# Nom de projet figé : le volume « budget-app_budget-data » en dépend, quel que soit le dossier.
+name: budget-app
+
 services:
   budget:
     build: .
