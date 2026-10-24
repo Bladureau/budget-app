@@ -50,8 +50,9 @@ interface KnownValues {
 | `abonnements[]` | `{ libelle, montant, echeance }` (≤ 25) | `computeMonthlyBudget().breakdown` |
 | `revenus[]` | `{ libelle, montant, date }` (≤ 10) | `occurrencesInMonth` |
 | `prochainesEcheances[]` | `{ libelle, montant, date }` (≤ 5) | `listUpcomingDues` |
-| `operationsRecentes[]` | `OperationLigne` (≤ 25) | dépenses et remboursements du mois, du plus récent au plus ancien |
-| `correspondances` | `{ motsCles, nombre, total, sensDuTotal, partielle?, operations[] (≤ 20) }` ou absent — le total est dépenses moins remboursements, calculé par l'application ; `sensDuTotal` vaut `remboursement` quand ceux-ci l'emportent | recherche par mots-clés (R4), `extractKeywords` et `normalizeForSearch` |
+| `depensesRecentes[]` | `OperationLigne` (≤ 25) | dépenses du mois, de la plus récente à la plus ancienne |
+| `remboursementsRecents[]` | `OperationLigne` (≤ 25) | remboursements du mois, du plus récent au plus ancien — **liste à part** : dans une liste commune marquée par `sens`, le modèle les présentait comme des dépenses (validation du 24/10, questions 3 et 12) |
+| `correspondances` | `{ motsCles, nombre, total, sensDuTotal, partielle?, depenses[], remboursements[] }` (≤ 20 lignes en tout) ou absent — dépenses et remboursements en listes séparées, comme `depensesRecentes` et `remboursementsRecents` — le total est dépenses moins remboursements, calculé par l'application ; `sensDuTotal` vaut `remboursement` quand ceux-ci l'emportent | recherche par mots-clés (R4), `extractKeywords` et `normalizeForSearch` |
 | `aClasser` | `number` | nombre d'`InboxItem` (le détail n'est pas transmis) |
 
 ### `OperationLigne`
@@ -61,8 +62,7 @@ interface KnownValues {
 | `date` | `formatIsoDateFr` |
 | `libelle` | `Expense.label` (ou « Sans libellé »), **assaini** (R7) : sans retour à la ligne ni caractère de contrôle, espaces réduites, ≤ 60 caractères |
 | `categorie` | `string` ou `"Sans catégorie"`, assainie de la même façon |
-| `montant` | montant formaté ; un remboursement est marqué `sens: "remboursement"` et non par un signe |
-| `sens` | `"depense"` \| `"remboursement"` |
+| `montant` | montant formaté, sans signe : c'est la liste qui dit s'il s'agit d'une dépense ou d'un remboursement |
 | `origine` | `"manuelle"` \| `"banque"` (jamais `bankRef`, `source` ni identifiant) |
 
 **Jamais transmis** (EF-016) : `rawLabel`, `bankRef`, `Expense.id`, états du registre bancaire, règles,
@@ -74,7 +74,7 @@ jeton d'accès, jetons Enable Banking, chemins.
   `formatCents` (le seul point d'appel à `Intl.NumberFormat`, principe II) **et** enregistre la valeur
   absolue dans `known.cents`. De même `pourcentage(ratio)` pour `known.percents`.
 - Le JSON sérialisé ne dépasse pas **10 000 caractères** (R5). Dépassement : on réduit, dans cet
-  ordre, `operationsRecentes`, `revenus`, `abonnements`, `nonBudgete.categories`, `correspondances.operations`,
+  ordre, `depensesRecentes` et `remboursementsRecents` (même plafond), `revenus`, `abonnements`, `nonBudgete.categories`, `correspondances.depenses` et `.remboursements`,
   jusqu'à tenir ; les agrégats (`synthese`, `jour`, `reserve`, `enveloppes`) ne sont jamais réduits. Si
   même eux dépassent (cas pathologique : des centaines d'enveloppes), `enveloppes` est tronquée aux 30
   plus consommées et le champ `enveloppesTronquees: true` l'indique au modèle.

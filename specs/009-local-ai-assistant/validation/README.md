@@ -27,9 +27,8 @@ Rien de tout cela n'entre dans l'image (`specs` est exclu par `.dockerignore`) n
 Depuis ce dossier :
 
 ```bash
-./lancer-demo.sh                     # affiche deux lignes « export … » : les exécuter
-export BUDGET_URL=http://127.0.0.1:3001
-export BUDGET_TOKEN_FILE=/tmp/budget-demo-XXXXXX/jeton
+./lancer-demo.sh                     # écrit BUDGET_URL et BUDGET_TOKEN_FILE dans .demo.env (hors Git)
+source .demo.env                     # utile seulement pour la commande Docker ; questions.py le lit seul
 
 # Partie D : les 18 questions, puis les questions fragiles plusieurs fois (le modèle varie)
 python3 -I questions.py

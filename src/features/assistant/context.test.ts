@@ -112,25 +112,30 @@ describe("buildAssistantContext — mêmes montants que l'écran", () => {
     });
   });
 
-  it("liste les opérations du mois, remboursements compris, du plus récent au plus ancien", () => {
-    const { operationsRecentes } = contexte().data;
+  it("liste les dépenses du mois, du plus récent au plus ancien, sans les remboursements", () => {
+    const { depensesRecentes } = contexte().data;
 
-    expect(operationsRecentes).toHaveLength(7);
-    expect(operationsRecentes[0]).toEqual({
-      date: "20/10/2026",
-      libelle: "REMBOURSEMENT CINEMA",
-      categorie: "Loisirs",
-      montant: formatCents(2500),
-      sens: "remboursement",
-      origine: "banque",
-    });
-    const dates = operationsRecentes.map((o) => o.date.split("/").reverse().join("-"));
+    expect(depensesRecentes).toHaveLength(6);
+    expect(depensesRecentes.map((o) => o.libelle)).not.toContain("REMBOURSEMENT CINEMA");
+    const dates = depensesRecentes.map((o) => o.date.split("/").reverse().join("-"));
     expect([...dates].sort().reverse()).toEqual(dates);
 
-    const monoprix = operationsRecentes.find((o) => o.libelle === "MONOPRIX");
+    const monoprix = depensesRecentes.find((o) => o.libelle === "MONOPRIX");
     expect(monoprix?.origine).toBe("manuelle");
-    const carrefour = operationsRecentes.filter((o) => o.libelle === "CARREFOUR MARKET");
+    const carrefour = depensesRecentes.filter((o) => o.libelle === "CARREFOUR MARKET");
     expect(carrefour.map((o) => o.origine)).toEqual(["banque", "banque"]);
+  });
+
+  it("liste les remboursements à part : c'est la liste, et non un champ, qui en dit le sens", () => {
+    expect(contexte().data.remboursementsRecents).toEqual([
+      {
+        date: "20/10/2026",
+        libelle: "REMBOURSEMENT CINEMA",
+        categorie: "Loisirs",
+        montant: formatCents(2500),
+        origine: "banque",
+      },
+    ]);
   });
 
   it("compte les opérations à classer sans en transmettre le détail", () => {
@@ -154,7 +159,8 @@ describe("buildAssistantContext — mois et période", () => {
     expect(data.aujourdhui).toBeUndefined();
     // Pas de réserve avant sa première déclaration.
     expect(data.reserve).toBeUndefined();
-    expect(data.operationsRecentes).toEqual([]);
+    expect(data.depensesRecentes).toEqual([]);
+    expect(data.remboursementsRecents).toEqual([]);
   });
 
   it("marque un mois à venir", () => {
@@ -172,7 +178,8 @@ describe("buildAssistantContext — cas limites", () => {
     expect(data.enveloppes).toEqual([]);
     expect(data.abonnements).toEqual([]);
     expect(data.revenus).toEqual([]);
-    expect(data.operationsRecentes).toEqual([]);
+    expect(data.depensesRecentes).toEqual([]);
+    expect(data.remboursementsRecents).toEqual([]);
     expect(data.nonBudgete).toBeUndefined();
     expect(data.reserve).toBeUndefined();
     expect(data.synthese.disponible).toBe(formatCents(0));
@@ -230,7 +237,7 @@ describe("buildAssistantContext — cas limites", () => {
     const { data, known } = contexte(doc);
 
     expect(data.synthese.depense).toBe(formatCents(9_000_000_001));
-    expect(data.operationsRecentes[0].montant).toBe(formatCents(9_000_000_000));
+    expect(data.depensesRecentes[0].montant).toBe(formatCents(9_000_000_000));
     expect(known.cents.has(9_000_000_000)).toBe(true);
     expect(JSON.stringify(data)).not.toMatch(/e\+\d/i);
   });
@@ -263,7 +270,7 @@ describe("buildAssistantContext — minimisation et assainissement", () => {
   });
 
   it("garde le libellé piégé comme une donnée, sur une seule ligne", () => {
-    const piege = contexte().data.operationsRecentes.find((o) => o.libelle === TRAP_LABEL);
+    const piege = contexte().data.depensesRecentes.find((o) => o.libelle === TRAP_LABEL);
     expect(piege).toBeDefined();
     expect(piege?.categorie).toBe("Sans catégorie");
   });
@@ -277,9 +284,9 @@ describe("buildAssistantContext — minimisation et assainissement", () => {
       category: "Cat\negorie",
       label: `LIGNE UN\nLIGNE DEUX\t${"x".repeat(500)}`,
     });
-    const { operationsRecentes } = contexte(doc).data;
+    const { depensesRecentes } = contexte(doc).data;
 
-    for (const operation of operationsRecentes) {
+    for (const operation of depensesRecentes) {
       expect(Array.from(operation.libelle).length).toBeLessThanOrEqual(60);
       expect(operation.libelle).not.toMatch(/[\n\r\t]/);
       expect(operation.categorie).not.toMatch(/[\n\r\t]/);
@@ -358,7 +365,7 @@ describe("buildAssistantContext — taille", () => {
 
     expect(grand.json.length).toBeLessThanOrEqual(CONTEXT_MAX_CHARS);
     // Les opérations sont réduites en premier.
-    expect(grand.data.operationsRecentes.length).toBeLessThan(25);
+    expect(grand.data.depensesRecentes.length).toBeLessThan(25);
     expect(grand.data.jour).toBeDefined();
     expect(grand.data.reserve).toBeDefined();
     expect(grand.data.synthese.etatDuMois).toBeDefined();
@@ -377,14 +384,14 @@ describe("buildAssistantContext — taille", () => {
         label: `Achat ${i}`,
       });
     }
-    expect(contexte(doc).data.operationsRecentes).toHaveLength(25);
+    expect(contexte(doc).data.depensesRecentes).toHaveLength(25);
   });
 
   it("réduit les listes dans l'ordre prévu : opérations d'abord", () => {
     const { data } = contexte(lourd(200));
 
     // Tant que les opérations n'ont pas été vidées, les autres listes gardent leur taille initiale.
-    if (data.operationsRecentes.length > 0) {
+    if (data.depensesRecentes.length > 0) {
       expect(data.revenus).toHaveLength(10);
       expect(data.abonnements).toHaveLength(25);
     }
@@ -417,7 +424,7 @@ describe("buildAssistantContext — correspondances (récit 4)", () => {
       total: formatCents(e.carrefour.total),
       sensDuTotal: "depense",
     });
-    expect(correspondances?.operations.map((o) => o.montant)).toEqual([
+    expect(correspondances?.depenses.map((o) => o.montant)).toEqual([
       formatCents(7_412),
       formatCents(9_840),
     ]);
@@ -437,7 +444,9 @@ describe("buildAssistantContext — correspondances (récit 4)", () => {
     // Loisirs : 2 850 + 15 570 − 2 500 de remboursement.
     expect(correspondances?.nombre).toBe(3);
     expect(correspondances?.total).toBe(formatCents(15_920));
-    expect(correspondances?.operations.map((o) => o.sens)).toContain("remboursement");
+    // Le remboursement est dans sa propre liste, jamais parmi les dépenses (validation du 24/10, question 3).
+    expect(correspondances?.depenses.map((o) => o.libelle)).not.toContain("REMBOURSEMENT CINEMA");
+    expect(correspondances?.remboursements.map((o) => o.libelle)).toEqual(["REMBOURSEMENT CINEMA"]);
   });
 
   it("indique un remboursement net quand les remboursements l'emportent", () => {
@@ -493,7 +502,7 @@ describe("buildAssistantContext — correspondances (récit 4)", () => {
     const { correspondances } = avecQuestion("lidl", doc).data;
 
     expect(correspondances?.nombre).toBe(30);
-    expect(correspondances?.operations).toHaveLength(20);
+    expect(correspondances?.depenses).toHaveLength(20);
     expect(correspondances?.partielle).toBe(true);
     const attendu = Array.from({ length: 30 }, (_, i) => 1_000 + i).reduce((a, b) => a + b, 0);
     expect(correspondances?.total).toBe(formatCents(attendu));
@@ -502,7 +511,7 @@ describe("buildAssistantContext — correspondances (récit 4)", () => {
   it("garde le libellé piégé d'une correspondance comme une donnée", () => {
     const { correspondances } = avecQuestion("Que contient la dépense IGNORE ?").data;
 
-    const piege = correspondances?.operations.find((o) => o.libelle === TRAP_LABEL);
+    const piege = correspondances?.depenses.find((o) => o.libelle === TRAP_LABEL);
     expect(piege).toBeDefined();
     expect(correspondances?.motsCles).toEqual(["contient", "ignore"]);
   });

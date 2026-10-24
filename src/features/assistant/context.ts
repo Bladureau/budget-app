@@ -45,7 +45,6 @@ export interface OperationLine {
   libelle: string;
   categorie: string;
   montant: string;
-  sens: "depense" | "remboursement";
   origine: "manuelle" | "banque";
 }
 
@@ -103,7 +102,13 @@ export interface AssistantData {
   abonnements: { libelle: string; montant: string; echeance: string }[];
   revenus: DatedAmount[];
   prochainesEcheances: DatedAmount[];
-  operationsRecentes: OperationLine[];
+  /**
+   * Dépenses et remboursements du mois, toujours en deux listes : c'est le nom de la liste qui dit
+   * le sens d'une opération. Dans une liste commune marquée par un champ `sens`, le modèle
+   * présentait les remboursements comme des dépenses (validation du 24/10, questions 3 et 12).
+   */
+  depensesRecentes: OperationLine[];
+  remboursementsRecents: OperationLine[];
   /**
    * Opérations du mois qui correspondent aux mots de la question (récit 4). Le total est calculé par
    * l'application : le modèle ne somme jamais lui-même.
@@ -114,9 +119,10 @@ export interface AssistantData {
     total: string;
     /** Le total est un remboursement net quand les remboursements l'emportent sur les dépenses. */
     sensDuTotal: "depense" | "remboursement";
-    /** Vrai quand `operations` ne liste pas toutes les correspondances. */
+    /** Vrai quand `depenses` et `remboursements` ne listent pas toutes les correspondances. */
     partielle?: true;
-    operations: OperationLine[];
+    depenses: OperationLine[];
+    remboursements: OperationLine[];
   };
   aClasser: number;
 }
@@ -131,7 +137,7 @@ export interface AssistantContext {
 
 /** Une dépense ou un remboursement du mois, avant mise en forme. */
 interface OperationBrute {
-  sens: OperationLine["sens"];
+  sens: "depense" | "remboursement";
   date: IsoDate;
   libelle: string | undefined;
   categorie: string | null;
@@ -291,7 +297,8 @@ export function buildAssistantContext(
         montant: montant(e.amountCents),
         date: formatIsoDateFr(e.dueDate),
       })),
-      operationsRecentes: [],
+      depensesRecentes: [],
+      remboursementsRecents: [],
       aClasser: doc.banking.inbox.length,
     };
 
@@ -362,11 +369,17 @@ export function buildAssistantContext(
       libelle: sanitizeLabel(o.libelle),
       categorie: o.categorie === null ? SANS_CATEGORIE : sanitizeLabel(o.categorie),
       montant: montant(o.amountCents),
-      sens: o.sens,
       origine: o.origine,
     });
 
-    data.operationsRecentes = operations.slice(0, caps.operations).map(ligne);
+    data.depensesRecentes = operations
+      .filter((o) => o.sens === "depense")
+      .slice(0, caps.operations)
+      .map(ligne);
+    data.remboursementsRecents = operations
+      .filter((o) => o.sens === "remboursement")
+      .slice(0, caps.operations)
+      .map(ligne);
 
     if (correspondantes.length > 0) {
       const listees = correspondantes.slice(0, caps.correspondances);
@@ -376,7 +389,8 @@ export function buildAssistantContext(
         total: montant(Math.abs(totalNet)),
         sensDuTotal: totalNet < 0 ? "remboursement" : "depense",
         ...(listees.length < correspondantes.length ? { partielle: true as const } : {}),
-        operations: listees.map(ligne),
+        depenses: listees.filter((o) => o.sens === "depense").map(ligne),
+        remboursements: listees.filter((o) => o.sens === "remboursement").map(ligne),
       };
     }
 

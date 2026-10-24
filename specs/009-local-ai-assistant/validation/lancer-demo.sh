@@ -48,6 +48,8 @@ if ls "$DOSSIER"/data/budget.corrupted-* >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Instance prête sur http://127.0.0.1:3001"
-echo "export BUDGET_URL=http://127.0.0.1:3001"
-echo "export BUDGET_TOKEN_FILE=$DOSSIER/jeton"
+# Un script ne peut pas modifier l'environnement du terminal qui l'appelle : les variables sont
+# écrites dans `.demo.env` (hors Git), que `questions.py` lit seul et que l'on peut `source`.
+printf 'export BUDGET_URL=http://127.0.0.1:3001\nexport BUDGET_TOKEN_FILE=%s\n' "$DOSSIER/jeton" > "$ICI/.demo.env"
+
+echo "Instance prête sur http://127.0.0.1:3001 (variables dans $ICI/.demo.env)"

@@ -202,7 +202,7 @@ conteneur temporaire sur `127.0.0.1:3001`, réseau `ollama`, jeton jetable, donn
 24/10/2026. Références calculées par `buildAssistantContext` (mêmes sélecteurs que les écrans) et
 recoupées à la main. Modèle `qwen3.5:9b`, RTX 3060 Ti. Pour rejouer : [validation/](./validation/README.md).
 
-### D. Justesse — T050 : **échec** (5 questions sur 15)
+### D. Justesse, première passe — T050 : **échec** (5 questions sur 15)
 
 | # | Référence | Réponse | 1er morceau | Verdict |
 |---|---|---|---|---|
@@ -278,7 +278,7 @@ maximum 0,96 s ; 28 sur 28 sous 5 s. ✅
 | `?onglet=assistant` / valeur inconnue | ouvre l'Assistant / ramène à « Aujourd'hui » ✅ |
 | Changement de mois | conversation vidée ✅ |
 | Sans autorisation | `401 {"error":"unauthorized"}` sans cookie ou avec un faux, en direct et par Tailscale Serve ✅ |
-| **Mise en forme** | ❌ le modèle répond en Markdown (`**312,47 €**`, puces `*`) et l'interface, en texte simple comme le veut le contrat, affiche les astérisques |
+| **Mise en forme** | ❌ à la première passe : le modèle répondait en Markdown et l'interface affichait les astérisques ; ✅ corrigé (voir la seconde passe) |
 | Essai par une personne qui ne connaît pas l'onglet (CR-007) | à faire |
 
 ### Corrections faites après ces essais (à revalider)
@@ -289,15 +289,41 @@ Code : champs du contexte renommés avec les mots de l'utilisateur (`resteDuMois
 d'épargne », « réserve » aux bons champs, règle « un remboursement n'est pas une dépense », et règle
 « texte simple, sans Markdown, vouvoiement, sans nom de champ ». Tests automatiques à jour.
 
-**À refaire sur le NAS** : reconstruire l'image (`docker compose build`), puis
-`python3 -I questions.py --seules 5 7 9 10 12 --fois 3` ; vérifier à l'œil l'absence d'astérisques
-(captures de `interface.mjs`). Les cinq questions doivent réussir **3 fois sur 3**.
+Revalidation de ces corrections (`e6276c4`) : questions 5, 7, 9 et 10 justes 3 fois sur 3, plus de
+Markdown, plus de nom de champ. Restaient deux écarts : la question 12 rangeait encore le remboursement
+parmi les dépenses (2 essais sur 3), et 12 réponses sur 15 tutoyaient malgré la consigne (les consignes
+s'adressent au modèle en « tu », et il l'imitait).
+
+Seconde correction : dépenses et remboursements **en listes séparées** dans les données
+(`depensesRecentes` et `remboursementsRecents`, et de même `correspondances.depenses` et
+`.remboursements`), sans champ `sens` ; vouvoiement avec un exemple contraire (« jamais « il te
+reste » ») et rappel en fin de message système. Lint, types, build et 1 386 tests au vert.
+
+### D. Justesse, seconde passe — T050 : **réussi**
+
+Image reconstruite, instance de démonstration, `questions.py` :
+
+- **18 questions** : les 15 montants sont identiques à la référence. Question 3 : dépenses
+  Loisirs listées, puis « Il y a également un remboursement de 25,00 € ». Question 12 : six dépenses,
+  puis le remboursement à part. Questions 16 à 18 : aucun chiffre inventé, rôle rappelé, libellé piégé
+  traité comme un libellé.
+- **27 répétitions** (questions 3, 5, 7, 9, 10, 11, 12, 14 et 18, 3 fois chacune), contrôlées
+  automatiquement : bons montants, jamais le « disponible » pour le reste du mois, aucun tutoiement,
+  aucun Markdown, aucun remboursement cité avant d'être annoncé comme tel, aucun montant « non vérifié »
+  — **27 sur 27**.
+- **Délais** : 45 mesures, toutes sous 1,2 s (médiane 0,23 s).
+- **Interface** : `interface.mjs` repassé sans écart ; réponses sans astérisques à l'écran.
+
+Détails sans gravité : une réponse sur la réserve finit par « Il vous reste donc une réserve
+disponible selon ces montants », et la question 7 ajoute parfois les prochaines échéances.
 
 ### Avant fusion
 
-1. Corriger la justesse (questions 5, 7, 9, 10, 12), puis refaire la partie D.
-2. Interdire le Markdown dans les consignes (texte simple, listes avec « - » au plus).
-3. Restent à la main : lecteur d'écran réel, essai par une personne novice (CR-007).
+1. ~~Corriger la justesse puis refaire la partie D~~ : fait (seconde passe ci-dessus).
+2. ~~Interdire le Markdown~~ : fait.
+3. Mettre à jour le vrai déploiement (`docker compose up -d` dans `projects/budget-app`) : le
+   conteneur `budget-app` tourne encore sur l'image d'avant les corrections.
+4. Restent à la main : lecteur d'écran réel, essai par une personne novice (CR-007).
 
 ---
 

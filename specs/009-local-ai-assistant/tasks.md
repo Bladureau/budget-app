@@ -408,7 +408,7 @@ leur total, identique à celui du journal.
       contexte) ; `grep -rn "fetch(" src/lib/server/assistant` ne trouve que l'adresse d'Ollama ;
       aucun import de `@/lib/server/` depuis `src/features/assistant/components/` ; aucun code mort ni
       commenté ; commentaires et textes en français (principe VIII).
-- [ ] T050 Validation manuelle sur le NAS — **justesse** : parties D du
+- [X] T050 Validation manuelle sur le NAS — **justesse** : parties D du
       [quickstart](./quickstart.md), 18 questions ; consigner le résultat de chacune (écran / réponse /
       verdict) dans une nouvelle section « Résultats » du quickstart, **avec le délai avant le premier
       morceau de texte** (CR-003 : moins de 5 s modèle chargé ; au moins 20 mesures, dont 95 % sous 5 s).

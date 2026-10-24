@@ -3,8 +3,9 @@
     python3 questions.py                         # les 18 questions de questions.json
     python3 questions.py --seules 5 7 9 --fois 3 # reposer certaines questions plusieurs fois
 
-Variables : BUDGET_URL (défaut http://127.0.0.1:3001), BUDGET_TOKEN_FILE (fichier du jeton, voir
-lancer-demo.sh), DEMO_MONTH et DEMO_TODAY (défaut : 2026-10 et 2026-10-24, les dates du jeu de démo).
+Variables : BUDGET_URL (défaut http://127.0.0.1:3001), BUDGET_TOKEN_FILE (fichier du jeton), lues
+dans l'environnement ou, à défaut, dans le `.demo.env` écrit par lancer-demo.sh ; DEMO_MONTH et
+DEMO_TODAY (défaut : 2026-10 et 2026-10-24, les dates du jeu de démo).
 Chaque question est posée seule, sans historique. Les résultats complets sont écrits en JSON.
 """
 
@@ -13,12 +14,31 @@ import http.client
 import json
 import os
 import pathlib
+import sys
 import time
 import urllib.parse
 
 ICI = pathlib.Path(__file__).resolve().parent
-URL = urllib.parse.urlsplit(os.environ.get("BUDGET_URL", "http://127.0.0.1:3001"))
-JETON = pathlib.Path(os.environ["BUDGET_TOKEN_FILE"]).read_text().strip()
+
+
+def variable(nom, defaut=None):
+    """Environnement d'abord, puis `.demo.env` (lignes `export NOM=valeur`)."""
+    if nom in os.environ:
+        return os.environ[nom]
+    fichier = ICI / ".demo.env"
+    if fichier.exists():
+        for ligne in fichier.read_text().splitlines():
+            cle, _, valeur = ligne.removeprefix("export ").partition("=")
+            if cle == nom:
+                return valeur
+    return defaut
+
+
+URL = urllib.parse.urlsplit(variable("BUDGET_URL", "http://127.0.0.1:3001"))
+FICHIER_JETON = variable("BUDGET_TOKEN_FILE")
+if FICHIER_JETON is None or not pathlib.Path(FICHIER_JETON).exists():
+    sys.exit("Jeton introuvable : lancer d'abord ./lancer-demo.sh (l'instance de démo n'est pas démarrée).")
+JETON = pathlib.Path(FICHIER_JETON).read_text().strip()
 MOIS = os.environ.get("DEMO_MONTH", "2026-10")
 AUJOURDHUI = os.environ.get("DEMO_TODAY", "2026-10-24")
 
