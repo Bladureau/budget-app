@@ -413,12 +413,12 @@ leur total, identique à celui du journal.
       verdict) dans une nouvelle section « Résultats » du quickstart, **avec le délai avant le premier
       morceau de texte** (CR-003 : moins de 5 s modèle chargé ; au moins 20 mesures, dont 95 % sous 5 s).
       Échec de la question 1 à 15 : corriger avant fusion.
-- [ ] T051 Validation manuelle — **mode dégradé** : parties B et E du quickstart (isolation du port,
+- [X] T051 Validation manuelle — **mode dégradé** : parties B et E du quickstart (isolation du port,
       arrêt d'Ollama, retour, chargement à froid, GPU occupé) ; chronométrer l'apparition de
       « Assistant indisponible » (moins de 10 s) et de « Chargement de l'assistant… » (moins d'1 s).
-- [ ] T052 Validation manuelle — **annulation** : partie F ; vérifier que `ollama ps` / `nvidia-smi`
+- [X] T052 Validation manuelle — **annulation** : partie F ; vérifier que `ollama ps` / `nvidia-smi`
       retombent aussitôt après « Annuler ». **Bloque la fusion** si la génération continue (EF-026).
-- [ ] T053 Validation manuelle — **flux et mandataires** : partie G (accès direct, Tailscale Serve,
+- [X] T053 Validation manuelle — **flux et mandataires** : partie G (accès direct, Tailscale Serve,
       Caddy) ; si le texte arrive d'un bloc, corriger les en-têtes ou la configuration avant fusion.
 - [ ] T054 Validation manuelle — **interface** : partie H (360 px à cinq onglets, zoom 200 %, thèmes,
       clavier, lecteur d'écran, `?onglet=assistant`, accès sans cookie → `401`) ; faire essayer
