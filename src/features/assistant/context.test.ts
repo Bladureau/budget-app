@@ -27,12 +27,12 @@ describe("buildAssistantContext — mêmes montants que l'écran", () => {
 
     expect(synthese).toMatchObject({
       revenusDuMois: formatCents(e.totalIncome),
-      chargesDuMois: formatCents(e.totalCharges),
+      totalAbonnements: formatCents(e.totalCharges),
       revenusNets: formatCents(e.incomeNet),
       disponible: formatCents(e.available),
       depense: formatCents(e.spent),
       rembourse: formatCents(e.refunded),
-      reste: formatCents(e.remaining),
+      resteDuMois: formatCents(e.remaining),
       tauxEngagement: e.commitmentRateText,
     });
     expect(synthese.depassement).toBeUndefined();
@@ -50,11 +50,11 @@ describe("buildAssistantContext — mêmes montants que l'écran", () => {
 
   it("reproduit la réserve", () => {
     expect(contexte().data.reserve).toEqual({
-      debut: formatCents(e.reserveOpening),
-      mensualite: formatCents(e.reserveShare),
+      reserveEnDebutDeMois: formatCents(e.reserveOpening),
+      partDEpargneDuMois: formatCents(e.reserveShare),
       moisRestants: e.reserveMonthsRemaining,
-      epargneEntamee: formatCents(0),
-      finPrevue: formatCents(e.reserveClosing),
+      epargneEntameeCeMois: formatCents(0),
+      reserveEnFinDeMoisPrevue: formatCents(e.reserveClosing),
     });
   });
 
@@ -199,7 +199,7 @@ describe("buildAssistantContext — cas limites", () => {
     };
     const { synthese } = contexte(doc).data;
 
-    expect(synthese.reste).toBe(formatCents(0));
+    expect(synthese.resteDuMois).toBe(formatCents(0));
     expect(synthese.depassement).toBe(formatCents(5_000));
     expect(synthese.etatDuMois).toBe("Dépassement");
   });
@@ -212,9 +212,9 @@ describe("buildAssistantContext — cas limites", () => {
     };
     const { reserve } = contexte(doc).data;
 
-    expect(reserve?.debut).toBe(reserveShortfallMessage(formatCents(499_000)));
-    expect(reserve?.finPrevue).toBe(reserveShortfallMessage(formatCents(499_000)));
-    expect(reserve?.mensualite).toBe(formatCents(0));
+    expect(reserve?.reserveEnDebutDeMois).toBe(reserveShortfallMessage(formatCents(499_000)));
+    expect(reserve?.reserveEnFinDeMoisPrevue).toBe(reserveShortfallMessage(formatCents(499_000)));
+    expect(reserve?.partDEpargneDuMois).toBe(formatCents(0));
     // Aucun montant négatif brut : le signe moins n'apparaît dans aucune valeur.
     expect(JSON.stringify(reserve)).not.toMatch(/[-−]\d/);
   });
@@ -363,7 +363,7 @@ describe("buildAssistantContext — taille", () => {
     expect(grand.data.reserve).toBeDefined();
     expect(grand.data.synthese.etatDuMois).toBeDefined();
     expect(grand.data.synthese.disponible).toBeDefined();
-    expect(grand.data.reserve?.mensualite).toBe(petit.data.reserve?.mensualite);
+    expect(grand.data.reserve?.partDEpargneDuMois).toBe(petit.data.reserve?.partDEpargneDuMois);
   });
 
   it("garde 25 opérations quand le contexte tient", () => {

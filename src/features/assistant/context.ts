@@ -71,12 +71,12 @@ export interface AssistantData {
   budgetVide: boolean;
   synthese: {
     revenusDuMois: string;
-    chargesDuMois: string;
+    totalAbonnements: string;
     revenusNets: string;
     disponible: string;
     depense: string;
     rembourse: string;
-    reste: string;
+    resteDuMois: string;
     depassement?: string;
     etatDuMois: string;
     tauxEngagement?: string;
@@ -90,12 +90,12 @@ export interface AssistantData {
     joursRestants: number;
   };
   reserve?: {
-    debut: string;
-    mensualite: string;
+    reserveEnDebutDeMois: string;
+    partDEpargneDuMois: string;
     moisRestants: number;
     horizonAtteint?: true;
-    epargneEntamee: string;
-    finPrevue: string;
+    epargneEntameeCeMois: string;
+    reserveEnFinDeMoisPrevue: string;
   };
   enveloppes: EnvelopeLine[];
   enveloppesTronquees?: true;
@@ -270,13 +270,13 @@ export function buildAssistantContext(
       budgetVide,
       synthese: {
         revenusDuMois: montant(budget.totalIncomeCents),
-        chargesDuMois: montant(budget.totalChargesCents),
+        totalAbonnements: montant(budget.totalChargesCents),
         revenusNets: montant(depense.incomeNetCents),
         disponible: montant(depense.availableCents),
         depense: montant(depense.spentCents),
         rembourse: montant(depense.refundedCents),
         // Comme l'anneau : jamais un reste négatif, le dépassement a son propre champ.
-        reste: montant(Math.max(0, depense.remainingCents)),
+        resteDuMois: montant(Math.max(0, depense.remainingCents)),
         ...(depense.overspentCents > 0 ? { depassement: montant(depense.overspentCents) } : {}),
         etatDuMois: RING_STATUS_LABELS[depense.status],
         ...(budget.commitmentRate === null
@@ -315,12 +315,12 @@ export function buildAssistantContext(
         cents < 0 ? reserveShortfallMessage(montant(-cents)) : montant(cents);
 
       data.reserve = {
-        debut: solde(reserve.openingCents),
-        mensualite: montant(Math.max(0, reserve.shareCents)),
+        reserveEnDebutDeMois: solde(reserve.openingCents),
+        partDEpargneDuMois: montant(Math.max(0, reserve.shareCents)),
         moisRestants: reserve.monthsRemaining,
         ...(reserve.horizonReached ? { horizonAtteint: true as const } : {}),
-        epargneEntamee: montant(reserve.drawnCents),
-        finPrevue: solde(reserve.closingCents),
+        epargneEntameeCeMois: montant(reserve.drawnCents),
+        reserveEnFinDeMoisPrevue: solde(reserve.closingCents),
       };
     }
 

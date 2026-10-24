@@ -281,6 +281,18 @@ maximum 0,96 s ; 28 sur 28 sous 5 s. ✅
 | **Mise en forme** | ❌ le modèle répond en Markdown (`**312,47 €**`, puces `*`) et l'interface, en texte simple comme le veut le contrat, affiche les astérisques |
 | Essai par une personne qui ne connaît pas l'onglet (CR-007) | à faire |
 
+### Corrections faites après ces essais (à revalider)
+
+Code : champs du contexte renommés avec les mots de l'utilisateur (`resteDuMois`, `totalAbonnements`,
+`partDEpargneDuMois`, `reserveEnDebutDeMois`, `reserveEnFinDeMoisPrevue`, `epargneEntameeCeMois`),
+**vocabulaire** dans les consignes reliant « reste du mois », « abonnements en tout », « part
+d'épargne », « réserve » aux bons champs, règle « un remboursement n'est pas une dépense », et règle
+« texte simple, sans Markdown, vouvoiement, sans nom de champ ». Tests automatiques à jour.
+
+**À refaire sur le NAS** : reconstruire l'image (`docker compose build`), puis
+`python3 -I questions.py --seules 5 7 9 10 12 --fois 3` ; vérifier à l'œil l'absence d'astérisques
+(captures de `interface.mjs`). Les cinq questions doivent réussir **3 fois sur 3**.
+
 ### Avant fusion
 
 1. Corriger la justesse (questions 5, 7, 9, 10, 12), puis refaire la partie D.

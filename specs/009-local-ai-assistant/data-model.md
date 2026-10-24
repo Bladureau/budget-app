@@ -41,11 +41,10 @@ interface KnownValues {
 | `moisCourant` | `boolean` | comparaison `month` / mois de `today` |
 | `aujourdhui` | `string` (« 24/10/2026 ») | `formatIsoDateFr` (omis hors mois courant) |
 | `budgetVide` | `boolean` | document sans revenu, abonnement, dépense ni enveloppe |
-| `synthese.revenusNets` … | `string` | `computeMonthlyBudget`, `computeMonthlySpending` |
-| `synthese.disponible`, `.depense`, `.reste`, `.depassement` | `string` | `computeMonthlySpending` |
+| `synthese.revenusDuMois`, `.totalAbonnements`, `.revenusNets`, `.disponible`, `.depense`, `.rembourse`, `.resteDuMois`, `.depassement?`, `.etatDuMois` | `string` | `computeMonthlyBudget`, `computeMonthlySpending` — **les noms reprennent les mots de l'utilisateur** (« reste du mois », « total des abonnements »), que les consignes relient explicitement aux champs (validation du 24/10 : le modèle confondait `reste` et `disponible`) |
 | `synthese.tauxEngagement` | `string` (« 60,4 % ») ou absent si les revenus sont nuls | `computeMonthlyBudget().commitmentRate` via `formatRateFr` — **le seul pourcentage du contexte**, parce que c'est le seul affiché à l'écran (onglet Mois) |
 | `jour` | `{ parJour, depenseAujourdhui, resteAujourdhui, report, joursRestants }` ou absent | `computeDailyAllowance` (mois courant uniquement) |
-| `reserve` | `{ debut, mensualite, moisRestants, epargneEntamee, finPrevue, horizonAtteint? }` — un solde négatif se dit « Réserve épuisée — découvert de X » comme à l'écran, jamais comme un montant négatif ; la part est bornée à zéro | `computeReserveState` |
+| `reserve` | `{ reserveEnDebutDeMois, partDEpargneDuMois, moisRestants, epargneEntameeCeMois, reserveEnFinDeMoisPrevue, horizonAtteint? }` — un solde négatif se dit « Réserve épuisée — découvert de X » comme à l'écran, jamais comme un montant négatif ; la part est bornée à zéro | `computeReserveState` |
 | `enveloppes[]` | `{ categorie, plafond, depense, reste, depassement, etat }` — **sans pourcentage** : l'écran n'en affiche pas par enveloppe, et un pourcentage que l'écran ne montre pas n'aurait aucune référence pour CR-001 | `computeMonthlyEnvelopes` |
 | `nonBudgete` | `{ total, categories[] }` (≤ 10) | `computeMonthlyEnvelopes().unbudgeted` |
 | `abonnements[]` | `{ libelle, montant, echeance }` (≤ 25) | `computeMonthlyBudget().breakdown` |
