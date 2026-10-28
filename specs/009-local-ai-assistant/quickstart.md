@@ -15,7 +15,7 @@ Rien dans ce guide ne duplique le contrat : en cas d'écart, le contrat fait foi
 ## Prérequis
 
 | Élément | Vérification |
-|---|---|
+| --- | --- |
 | Pile Ollama démarrée sur le NAS | `docker exec ollama ollama list` montre `qwen3.5:9b` |
 | Réseau Docker `ollama` | `docker network inspect ollama >/dev/null 2>&1 \|\| docker network create ollama` |
 | `docker-compose.yml` | `budget` rattaché aux réseaux `default` **et** `ollama`, avec `OLLAMA_URL` et `OLLAMA_MODEL` |
@@ -62,7 +62,7 @@ répond, Ollama est ouvert au réseau sans mot de passe : corriger la pile Ollam
 Importer (Réglages → Importer) un budget de démonstration, ou saisir à la main, avec **le mois courant** :
 
 | Élément | Valeur |
-|---|---|
+| --- | --- |
 | Revenu récurrent mensuel | 2 400,00 € |
 | Abonnements | Loyer 900,00 € · Électricité 62,00 € · Streaming 13,49 € |
 | Enveloppes | Courses 400,00 € · Loisirs 150,00 € |
@@ -102,7 +102,7 @@ référence relevé sur l'écran **au centime**. Noter le résultat dans le tabl
 validation).
 
 | # | Question | Référence à retrouver |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Combien ai-je dépensé en courses ce mois-ci ? | Courses : dépensé |
 | 2 | Combien me reste-t-il sur l'enveloppe courses ? | Courses : reste |
 | 3 | Mon enveloppe loisirs est-elle dépassée ? | Loisirs : dépassement |
@@ -181,7 +181,7 @@ configuration du mandataire (désactiver la mise en tampon pour `/api/assistant`
 ## H. Vérifications manuelles — interface (principe VII)
 
 | Contrôle | Attendu |
-|---|---|
+| --- | --- |
 | Largeur 360 px | cinq onglets lisibles dans la barre du bas, aucun défilement horizontal |
 | Zoom 200 % | panneau, boutons et réponses lisibles |
 | Thèmes clair et sombre | contraste suffisant, y compris l'avertissement et les états |
@@ -205,7 +205,7 @@ recoupées à la main. Modèle `qwen3.5:9b`, RTX 3060 Ti. Pour rejouer : [valida
 ### D. Justesse, première passe — T050 : **échec** (5 questions sur 15)
 
 | # | Référence | Réponse | 1er morceau | Verdict |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1 | 312,47 € | 312,47 € | 0,96 s | ✅ |
 | 2 | 87,53 € | 87,53 € | 0,28 s | ✅ |
 | 3 | dépassée de 9,20 € | oui, 159,20 € sur 150,00 €, dépassement 9,20 € | 0,30 s | ✅ |
@@ -269,7 +269,7 @@ maximum 0,96 s ; 28 sur 28 sous 5 s. ✅
 ### H. Interface — T054 : **partiel**
 
 | Contrôle | Résultat |
-|---|---|
+| --- | --- |
 | 360 px | cinq onglets dans la barre du bas, `scrollWidth` = 360 : aucun défilement horizontal ✅ |
 | Zoom 200 % (640 px CSS) | lisible, pas de défilement horizontal ✅ |
 | Thème sombre | contraste correct à l'œil sur capture ✅ ; avertissement « non vérifié » jamais apparu, donc non contrôlé |
