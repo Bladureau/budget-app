@@ -258,6 +258,13 @@ export function withConnection(
  * Une opération déjà connue n'est pas remplacée : une opération comptabilisée ne change plus.
  * Un arrondi déjà fusionné dans un paiement (sa référence figure en `roundUpRef`) n'est pas
  * réajouté, sans quoi il réapparaîtrait seul à chaque récupération (R8).
+ *
+ * LCL peut renvoyer une opération déjà connue sous une **autre** référence : depuis fin octobre
+ * 2026, elle arrive sans `entry_reference`, au format court, et reçoit une référence construite
+ * (normalisation §2). Une opération LCL de référence inconnue mais identique à une opération du
+ * cache absente du lot est donc la même : elle n'est pas réajoutée, et l'opération du cache
+ * garde sa référence, déjà inscrite au registre du budget. Chaque opération du cache ne sert
+ * qu'une fois, pour que deux opérations identiques le même jour restent deux.
  */
 export function mergeOperations(
   existantes: readonly BankOperation[],
@@ -269,13 +276,47 @@ export function mergeOperations(
     if (operation.roundUpRef) connues.add(operation.roundUpRef);
   }
 
+  const duLot = new Set(nouvelles.map((operation) => operation.ref));
+  const sansCorrespondant = existantes.filter(
+    (operation) => operation.bank === "lcl" && !duLot.has(operation.ref),
+  );
+
   const resultat = [...existantes];
   for (const operation of nouvelles) {
     if (connues.has(operation.ref)) continue;
+    if (operation.bank === "lcl") {
+      const rang = sansCorrespondant.findIndex((connue) => memeOperationLcl(connue, operation));
+      if (rang !== -1) {
+        sansCorrespondant.splice(rang, 1);
+        continue;
+      }
+    }
     connues.add(operation.ref);
     resultat.push(operation);
   }
   return resultat;
+}
+
+function lignesComparables(rawLabel: string): string[] {
+  return rawLabel.split(" · ").map((ligne) => ligne.replace(/\s+/g, " ").trim().toUpperCase());
+}
+
+/**
+ * Même jour, même sens, même montant, et les lignes d'un libellé toutes présentes dans l'autre :
+ * le format court ne garde qu'une ligne du format long (`CB UBER *EATS 24/10/26`).
+ */
+function memeOperationLcl(a: BankOperation, b: BankOperation): boolean {
+  if (
+    a.bookingDate !== b.bookingDate ||
+    a.direction !== b.direction ||
+    a.amountCents !== b.amountCents ||
+    a.currency !== b.currency
+  ) {
+    return false;
+  }
+  const lignesA = lignesComparables(a.rawLabel);
+  const lignesB = lignesComparables(b.rawLabel);
+  return lignesA.every((ligne) => lignesB.includes(ligne)) || lignesB.every((ligne) => lignesA.includes(ligne));
 }
 
 export function withAttempt(etat: StoredBanking, bank: BankSource, at: Date): StoredBanking {

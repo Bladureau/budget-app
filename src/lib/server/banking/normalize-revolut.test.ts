@@ -33,6 +33,13 @@ describe("normalizeRevolut — natures", () => {
   });
 });
 
+describe("normalizeRevolut — référence", () => {
+  it.each(["", null])("écarte une transaction de référence %j (seul LCL en construit une)", (reference) => {
+    const brut = { ...revolutBrute("a", "2026-09-29", "5.45", "DBIT", "CARD_PAYMENT", "Casino Shop"), entry_reference: reference };
+    expect(normalizeRevolut(brut)).toBeNull();
+  });
+});
+
 describe("mergeRoundUps — septembre 2026", () => {
   const operations = mergeRoundUps(lot(REVOLUT_SEPTEMBRE));
   const parCommercant = (label: string, jour: string) =>

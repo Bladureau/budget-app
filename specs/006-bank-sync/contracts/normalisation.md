@@ -16,7 +16,7 @@ modifiés).
 | Élément | Règle |
 | --- | --- |
 | Statut | Seul `status: "BOOK"` est retenu (EF-009) |
-| `ref` | `"<bank>:" + entry_reference`. Transaction sans `entry_reference` : écartée. |
+| `ref` | `"<bank>:" + entry_reference`. Transaction sans `entry_reference` : écartée, sauf chez LCL, qui n'en fournit plus depuis fin octobre 2026 (§2, « Format court »). |
 | Montant | `transaction_amount.amount` est du **texte**. Accepté : `^\d+(\.\d{1,2})?$`. Conversion : partie entière × 100 + décimales complétées à 2 chiffres. `"35.8"` → 3580 ; `"50"` → 5000 ; `"0.00"` → 0. **Jamais `parseFloat`** (EF-036). Un signe éventuel est ignoré : le sens vient de `credit_debit_indicator`. |
 | Sens | `DBIT` → `debit`, `CRDT` → `credit`. Toute autre valeur : transaction écartée. |
 | Devise | `transaction_amount.currency`, transmise telle quelle |
@@ -66,6 +66,36 @@ inchangé. `paymentDate = null`.
 
 Toutes les lignes non vides, jointes par ` · `. C'est sur lui que portent les règles
 contenant un motif comme `LOYER`, qui figure dans une ligne de motif du virement.
+
+### Format court (depuis fin octobre 2026)
+
+Constaté le 28/10/2026 : LCL renvoie, pour **toutes** ses transactions, y compris les
+anciennes, une `entry_reference` vide et une seule ligne de 31 caractères au plus. Aucun autre
+champ ne porte d'identifiant (`transaction_id`, `reference_number` : `null`).
+
+| Format long (jusqu'au 22/10/2026 au moins) | Format court |
+| --- | --- |
+| `CARTE · 0000000 · CB UBER *EATS 02/10/26 · HELP.UBER.COM EUR 31,28 · …` | `CB  UBER   *EATS     02/10/26` |
+| `VIREMENT SEPA RECU · VIREMENT CAF EXEMPLE · … · SCR…` | `VIREMENT CAF EXEMPLE` |
+| `COTISATION MENSUELLE CARTE · COTISATION MENSUELLE CARTE 0000` | `COTISATION MENSUELLE CARTE 0000` |
+
+- **Nature** : une `L0` de la forme `CB …` est une carte (`card` au débit, `cardRefund` au
+  crédit) ; les autres préfixes du tableau s'appliquent tels quels. Le commerçant et la date de
+  paiement se lisent comme au format long.
+- **Référence construite** : `lcl:sans-ref:` + 24 premiers caractères hexadécimaux du SHA-256 de
+  `bookingDate|direction|amountCents|currency|RAWLABEL` (libellé brut en majuscules). Deux
+  transactions identiques du même lot ont la même empreinte : la n-ième (n ≥ 2) est suffixée
+  `-n`. Une même transaction reçoit donc la même référence d'une récupération à l'autre.
+- **Opérations déjà connues** : une transaction déjà en cache sous son ancienne référence
+  revient sous une référence construite. À la fusion dans le cache, une opération LCL de
+  référence inconnue est **la même** qu'une opération du cache absente du lot si elles ont même
+  `bookingDate`, `direction`, montant et devise, et si toutes les lignes de l'un des deux
+  `rawLabel` figurent dans l'autre (espaces réduits, majuscules). Elle n'est alors pas ajoutée :
+  l'opération du cache garde sa référence, déjà inscrite au registre. Chaque opération du cache
+  ne sert qu'une fois, pour que deux opérations identiques le même jour restent deux. La même
+  règle couvre un retour au format long.
+- **Limite** : si LCL modifiait le libellé ou la date d'une opération déjà reçue, elle serait
+  importée une seconde fois. Rien de tel n'a été constaté (27 opérations sur 27 retrouvées).
 
 ---
 

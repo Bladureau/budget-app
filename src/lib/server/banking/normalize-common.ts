@@ -70,13 +70,21 @@ export type CommonFields = Pick<
  * Champs communs d'une transaction comptabilisée. `null` si la transaction est mal formée ;
  * `"pending"` si elle n'est pas comptabilisée (elle n'est alors ni traitée, ni comptée comme
  * illisible : elle reviendra comptabilisée, EF-009).
+ *
+ * Avec `referenceFacultative`, une transaction sans `entry_reference` n'est pas écartée : sa
+ * `ref` vaut `""` et l'appelant en construit une (normalisation §1, LCL depuis octobre 2026).
  */
-export function champsCommuns(bank: BankSource, brut: unknown): CommonFields | "pending" | null {
+export function champsCommuns(
+  bank: BankSource,
+  brut: unknown,
+  { referenceFacultative = false }: { referenceFacultative?: boolean } = {},
+): CommonFields | "pending" | null {
   if (!estObjet(brut)) return null;
   if (brut.status !== "BOOK") return typeof brut.status === "string" ? "pending" : null;
 
-  const reference = brut.entry_reference;
-  if (typeof reference !== "string" || reference === "" || reference.length > 150) return null;
+  const reference = brut.entry_reference ?? "";
+  if (typeof reference !== "string" || reference.length > 150) return null;
+  if (reference === "" && !referenceFacultative) return null;
 
   const montant = estObjet(brut.transaction_amount) ? brut.transaction_amount : null;
   if (!montant) return null;
@@ -98,7 +106,14 @@ export function champsCommuns(bank: BankSource, brut: unknown): CommonFields | "
   );
   if (!bookingDate) return null;
 
-  return { ref: `${bank}:${reference}`, bank, bookingDate, amountCents, currency, direction };
+  return {
+    ref: reference === "" ? "" : `${bank}:${reference}`,
+    bank,
+    bookingDate,
+    amountCents,
+    currency,
+    direction,
+  };
 }
 
 export interface NormalizedBatch {
