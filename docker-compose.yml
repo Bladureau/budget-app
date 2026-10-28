@@ -6,6 +6,9 @@
 #  - le jeton n'y figure pas, il vient de `.env` (non versionné) ;
 #  - le port n'est publié que sur la boucle locale, Caddy étant seul à joindre l'application.
 
+# Nom de projet figé : le volume « budget-app_budget-data » en dépend, quel que soit le dossier.
+name: budget-app
+
 services:
   budget:
     build: .
@@ -28,6 +31,11 @@ services:
       ENABLE_BANKING_APP_ID: ${ENABLE_BANKING_APP_ID:-}
       BANKING_REDIRECT_URL: ${BANKING_REDIRECT_URL:-}
       ENABLE_BANKING_KEY_PATH: /run/secrets/enable-banking.pem
+      # Assistant du budget (fonctionnalité 009). L'IA est celle du serveur, jointe par le réseau
+      # Docker interne « ollama » : son port n'est publié nulle part. Facultative : si elle est
+      # arrêtée, l'assistant se dit indisponible et tout le reste du budget fonctionne.
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:9b}
 
     volumes:
       # Volume nommé, géré par Docker sur le disque local du serveur. À ne pas remplacer par un
@@ -50,6 +58,12 @@ services:
         bind:
           create_host_path: false
 
+    # « default » est à conserver : sans lui, le service quitterait le réseau qu'il occupe
+    # aujourd'hui dès qu'on le rattache à « ollama ».
+    networks:
+      - default
+      - ollama
+
     # Le budget est peu volumineux et l'application ne fait aucun calcul lourd côté serveur.
     # Ces bornes évitent qu'un emballement ne gêne le reste du serveur.
     mem_limit: 512m
@@ -69,3 +83,11 @@ services:
 
 volumes:
   budget-data:
+
+networks:
+  # Créé par la pile Ollama (/mnt/dev/stacks/ollama). **S'il n'existe pas, `docker compose up`
+  # refuse de démarrer l'application entière**, pas seulement l'assistant : démarrer Ollama d'abord,
+  # ou le créer à vide avec
+  #   docker network inspect ollama >/dev/null 2>&1 || docker network create ollama
+  ollama:
+    external: true

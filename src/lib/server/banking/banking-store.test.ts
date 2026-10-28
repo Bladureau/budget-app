@@ -142,6 +142,62 @@ describe("mergeOperations", () => {
   });
 });
 
+describe("mergeOperations — LCL au format court, sans référence", () => {
+  /** Recharge Revolut du 19/10, au format long (référence LCL) ou court (référence construite). */
+  function recharge(ref: string, format: "long" | "court", paiement = "18/10/26"): BankOperation {
+    const ligneCarte = `CB Revolut**0000* ${paiement}`;
+    return operation("", {
+      ref,
+      bank: "lcl",
+      bookingDate: "2026-10-19",
+      amountCents: 1000,
+      label: "Revolut**0000*",
+      rawLabel:
+        format === "long" ? `CARTE · 0000000 · ${ligneCarte} · PAIEMENT A Jean Dupont · CBLM JEAN DUPONT` : ligneCarte,
+    });
+  }
+
+  it("reconnaît une opération connue revenue sous une référence construite", () => {
+    const connue = recharge("lcl:ancienne", "long");
+    expect(mergeOperations([connue], [recharge("lcl:sans-ref:x", "court")])).toEqual([connue]);
+  });
+
+  it("garde deux opérations identiques du même jour, sans en ajouter une troisième", () => {
+    const connues = [recharge("lcl:a", "long"), recharge("lcl:b", "long")];
+    const lot = [recharge("lcl:sans-ref:x", "court"), recharge("lcl:sans-ref:x-2", "court")];
+    expect(mergeOperations(connues, lot)).toEqual(connues);
+  });
+
+  it("ajoute la seule opération réellement nouvelle parmi des identiques", () => {
+    const connues = [recharge("lcl:a", "long"), recharge("lcl:b", "long")];
+    const troisieme = recharge("lcl:sans-ref:x-3", "court");
+    const lot = [recharge("lcl:sans-ref:x", "court"), recharge("lcl:sans-ref:x-2", "court"), troisieme];
+    expect(mergeOperations(connues, lot)).toEqual([...connues, troisieme]);
+  });
+
+  it("ajoute une opération qui diffère par le montant, la date, le sens ou le libellé", () => {
+    const connue = recharge("lcl:a", "long");
+    const differentes = [
+      { ...recharge("lcl:sans-ref:1", "court"), amountCents: 1001 },
+      { ...recharge("lcl:sans-ref:2", "court"), bookingDate: "2026-10-20" },
+      { ...recharge("lcl:sans-ref:3", "court"), direction: "credit" as const },
+      recharge("lcl:sans-ref:4", "court", "17/10/26"),
+    ];
+    expect(mergeOperations([connue], differentes)).toEqual([connue, ...differentes]);
+  });
+
+  it("reconnaît aussi le retour au format long, avec une référence LCL", () => {
+    const connue = recharge("lcl:sans-ref:x", "court");
+    expect(mergeOperations([connue], [recharge("lcl:nouvelle", "long")])).toEqual([connue]);
+  });
+
+  it("ne compare pas les opérations Revolut par leur contenu", () => {
+    const connue = operation("a");
+    const autre = operation("b");
+    expect(mergeOperations([connue], [autre])).toEqual([connue, autre]);
+  });
+});
+
 describe("transformations de connexion", () => {
   it("conserve le cache d'opérations lors d'un renouvellement", () => {
     let etat = withConnection(emptyBanking(), liaison);

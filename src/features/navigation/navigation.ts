@@ -6,7 +6,7 @@
  * Voir specs/007-navigation-menu/research.md (R1) et data-model.md.
  */
 
-export type Tab = "today" | "expenses" | "month" | "settings";
+export type Tab = "today" | "expenses" | "month" | "assistant" | "settings";
 
 export interface TabDefinition {
   tab: Tab;
@@ -20,6 +20,7 @@ export const TABS: readonly TabDefinition[] = [
   { tab: "today", param: null, label: "Aujourd’hui" },
   { tab: "expenses", param: "depenses", label: "Dépenses" },
   { tab: "month", param: "mois", label: "Mois" },
+  { tab: "assistant", param: "assistant", label: "Assistant" },
   { tab: "settings", param: "reglages", label: "Réglages" },
 ];
 

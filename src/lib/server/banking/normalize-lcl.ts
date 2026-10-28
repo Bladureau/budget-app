@@ -7,7 +7,13 @@
  * dans le libellé multiligne. La première ligne donne la nature ; pour une carte, la ligne
  * `CB  <COMMERÇANT>  <JJ/MM/AA>` donne le commerçant et le **jour réel du paiement**, différent
  * du jour de débit (EF-014).
+ *
+ * Depuis fin octobre 2026, LCL renvoie un format **court** : une seule ligne (la ligne `CB …`
+ * pour une carte, le bénéficiaire pour un virement) et aucune `entry_reference`. Les deux
+ * formats sont lus ; sans référence, une référence est construite à partir du contenu (§2).
  */
+
+import { createHash } from "node:crypto";
 
 import { compareIso, isValidIsoDate } from "@/lib/date";
 import type { BankOperation, BankOperationKind } from "@/features/banking/types";
@@ -31,7 +37,10 @@ function nature(premiereLigne: string, direction: "debit" | "credit"): BankOpera
   const ligne = premiereLigne.toUpperCase();
   // L'ordre compte : `CARTE ANNUL` est testé avant `CARTE`.
   if (ligne.startsWith("CARTE ANNUL")) return "cardRefund";
-  if (ligne.startsWith("CARTE")) return direction === "debit" ? "card" : "cardRefund";
+  // Format court : la ligne `CB …` est la seule, sans la ligne `CARTE` qui la précédait.
+  if (ligne.startsWith("CARTE") || LIGNE_CARTE.test(ligne)) {
+    return direction === "debit" ? "card" : "cardRefund";
+  }
   if (ligne.startsWith("VIREMENT") || ligne.startsWith("VIR ")) {
     return direction === "debit" ? "transferOut" : "transferIn";
   }
@@ -61,8 +70,23 @@ function commercant(ligne: string): string {
   return compacter(ligne.replace(LIGNE_CARTE, "").replace(DATE_EN_FIN, "").replace(/\s\d{2}\/\d{2}\/\d{1,2}$/, ""));
 }
 
+/**
+ * Référence d'une transaction sans `entry_reference` : empreinte de ce qui la décrit. Deux
+ * transactions identiques le même jour ont la même ; le lot les départage (`normalizeLclBatch`).
+ */
+function referenceConstruite(operation: Omit<BankOperation, "ref">): string {
+  const contenu = [
+    operation.bookingDate,
+    operation.direction,
+    operation.amountCents,
+    operation.currency,
+    operation.rawLabel.toUpperCase(),
+  ].join("|");
+  return `lcl:sans-ref:${createHash("sha256").update(contenu).digest("hex").slice(0, 24)}`;
+}
+
 export function normalizeLcl(brut: unknown): BankOperation | "pending" | null {
-  const communs = champsCommuns("lcl", brut);
+  const communs = champsCommuns("lcl", brut, { referenceFacultative: true });
   if (communs === null || communs === "pending") return communs;
 
   const lignes = lignesDuLibelle(brut as Record<string, unknown>);
@@ -88,15 +112,28 @@ export function normalizeLcl(brut: unknown): BankOperation | "pending" | null {
     );
   }
 
-  return {
+  const operation = {
     ...communs,
     paymentDate,
     kind,
     label: tronquer(label, LABEL_MAX),
     rawLabel: libelleBrut(lignes),
   };
+  return operation.ref === "" ? { ...operation, ref: referenceConstruite(operation) } : operation;
 }
 
+/**
+ * Deux transactions sans référence et identiques (deux recharges de 10 € le même jour) reçoivent
+ * la même référence construite : la n-ième est suffixée `-n`, pour qu'aucune ne soit perdue.
+ */
 export function normalizeLclBatch(brutes: readonly unknown[]): NormalizedBatch {
-  return normaliserLot(brutes, normalizeLcl);
+  const lot = normaliserLot(brutes, normalizeLcl);
+  const vues = new Map<string, number>();
+  const operations = lot.operations.map((operation) => {
+    if (!operation.ref.startsWith("lcl:sans-ref:")) return operation;
+    const rang = (vues.get(operation.ref) ?? 0) + 1;
+    vues.set(operation.ref, rang);
+    return rang === 1 ? operation : { ...operation, ref: `${operation.ref}-${rang}` };
+  });
+  return { ...lot, operations };
 }

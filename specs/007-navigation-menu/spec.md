@@ -11,6 +11,11 @@
 **Demande initiale** : « Pour la prochaine feature, je voudrais bien avoir un menu plutôt que de
 scroller indéfiniment. »
 
+> **Évolution (fonctionnalité 009, 2026-10-24).** Le menu compte désormais **cinq** entrées : un
+> onglet « Assistant » s'intercale entre « Mois » et « Réglages ». Ce document décrit l'état de la
+> fonctionnalité 007 et n'est pas modifié sur le fond ; voir
+> [specs/009-local-ai-assistant/](../009-local-ai-assistant/).
+
 ---
 
 ## Constat de départ

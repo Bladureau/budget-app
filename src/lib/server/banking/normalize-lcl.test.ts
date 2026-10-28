@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import { normalizeLcl, normalizeLclBatch } from "@/lib/server/banking/normalize-lcl";
 import { montantEnCentimes } from "@/lib/server/banking/normalize-common";
-import { LCL_NATURES, MALFORMEES, lclCarte } from "@/lib/server/banking/fixtures";
+import { LCL_COURTES, LCL_NATURES, MALFORMEES, lclCarte, lclCourte } from "@/lib/server/banking/fixtures";
 import type { BankOperation } from "@/features/banking/types";
 
 function normaliser(brut: unknown): BankOperation {
@@ -117,11 +117,63 @@ describe("normalizeLcl — natures", () => {
   });
 });
 
+describe("normalizeLcl — format court, sans référence (fin octobre 2026)", () => {
+  it("lit un paiement carte : nature, commerçant et date de paiement", () => {
+    const operation = normaliser(LCL_COURTES.carte);
+    expect(operation).toMatchObject({
+      bookingDate: "2026-10-27",
+      paymentDate: "2026-10-24",
+      amountCents: 4112,
+      direction: "debit",
+      kind: "card",
+      label: "UBER *EATS",
+      rawLabel: "CB UBER *EATS 24/10/26",
+    });
+  });
+
+  it.each([
+    ["recharge Revolut", LCL_COURTES.rechargeRevolut, "card", "Revolut**0000*"],
+    ["virement entrant", LCL_COURTES.virementEntrant, "transferIn", "VIREMENT GERANCE EXEMPLE"],
+    ["virement sortant", LCL_COURTES.virementSortant, "transferOut", "VIR SEPA M JEAN DUPONT"],
+    ["cotisation", LCL_COURTES.cotisation, "bankFee", "COTISATION MENSUELLE CARTE 0000"],
+  ] as const)("reconnaît la nature : %s", (_, brut, kind, label) => {
+    const operation = normaliser(brut);
+    expect(operation.kind).toBe(kind);
+    expect(operation.label).toBe(label);
+  });
+
+  it("construit une référence stable, sans écarter la transaction", () => {
+    const ref = normaliser(LCL_COURTES.carte).ref;
+    expect(ref).toMatch(/^lcl:sans-ref:[0-9a-f]{24}$/);
+    expect(normaliser(structuredClone(LCL_COURTES.carte)).ref).toBe(ref);
+    expect(normaliser({ ...LCL_COURTES.carte, entry_reference: null }).ref).toBe(ref);
+  });
+
+  it("distingue deux transactions qui ne diffèrent que par le montant", () => {
+    const autre = lclCourte("2026-10-27", "10.32", "DBIT", "CB  UBER   *EATS     24/10/26");
+    expect(normaliser(autre).ref).not.toBe(normaliser(LCL_COURTES.carte).ref);
+  });
+
+  it("départage deux transactions identiques du même lot, sans en perdre", () => {
+    const recharge = lclCourte("2026-10-19", "10", "DBIT", "CB  Revolut**0000*   18/10/26");
+    const lot = normalizeLclBatch([recharge, structuredClone(recharge), LCL_COURTES.carte]);
+    const [premiere, seconde] = lot.operations.map((o) => o.ref);
+    expect(lot.operations).toHaveLength(3);
+    expect(lot.discarded).toBe(0);
+    expect(seconde).toBe(`${premiere}-2`);
+    // D'une récupération à l'autre, les mêmes transactions reçoivent les mêmes références.
+    expect(normalizeLclBatch([recharge, recharge]).operations.map((o) => o.ref)).toEqual([premiere, seconde]);
+  });
+
+  it("garde la référence de LCL quand elle est fournie", () => {
+    expect(normaliser(LCL_NATURES.carte).ref).toBe("lcl:l-carte");
+  });
+});
+
 describe("normalizeLcl — transactions écartées", () => {
   it.each([
     ["montant à virgule", MALFORMEES.montantVirgule],
     ["montant en texte", MALFORMEES.montantTexte],
-    ["sans référence", MALFORMEES.sansReference],
     ["sens inconnu", MALFORMEES.sensInconnu],
     ["pas un objet", MALFORMEES.pasUnObjet],
   ])("écarte une transaction %s", (_, brut) => {

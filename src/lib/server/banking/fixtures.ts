@@ -64,6 +64,23 @@ export function lclCarte(reference: string, debit: string, montant: string, comm
   ]);
 }
 
+/**
+ * Format court de LCL (depuis fin octobre 2026) : une seule ligne, complétée d'espaces à 31
+ * caractères, et une `entry_reference` vide.
+ */
+export function lclCourte(date: string, montant: string, sens: Sens, ligne: string): Brute {
+  return { ...lclBrute("", date, montant, sens, [` ${ligne.padEnd(30)}`]), entry_reference: "" };
+}
+
+/** Les mêmes natures qu'au format long, telles que LCL les renvoie au format court. */
+export const LCL_COURTES = {
+  carte: lclCourte("2026-10-27", "41.12", "DBIT", "CB  UBER   *EATS     24/10/26"),
+  rechargeRevolut: lclCourte("2026-10-26", "11.29", "DBIT", "CB  Revolut**0000*   25/10/26"),
+  virementEntrant: lclCourte("2026-10-27", "124.83", "CRDT", "VIREMENT GERANCE EXEMPLE"),
+  virementSortant: lclCourte("2026-10-14", "600", "DBIT", "VIR SEPA M JEAN DUPONT"),
+  cotisation: lclCourte("2026-10-27", "2", "DBIT", "COTISATION MENSUELLE CARTE 0000"),
+};
+
 /** Une transaction LCL de chaque nature du contrat de normalisation (§2). */
 export const LCL_NATURES = {
   carte: lclCarte("l-carte", "2026-09-28", "33.82", "PETROLEC SUD", "26/09/26"),
@@ -180,7 +197,6 @@ export const REVOLUT_SEPTEMBRE = [
 export const MALFORMEES = {
   montantVirgule: { ...lclCarte("m-virgule", "2026-09-28", "1,5", "X", "26/09/26") },
   montantTexte: { ...lclCarte("m-texte", "2026-09-28", "abc", "X", "26/09/26") },
-  sansReference: { ...lclCarte("m-ref", "2026-09-28", "1.50", "X", "26/09/26"), entry_reference: null },
   enAttente: { ...lclCarte("m-pdng", "2026-09-28", "1.50", "X", "26/09/26"), status: "PDNG" },
   sensInconnu: { ...lclCarte("m-sens", "2026-09-28", "1.50", "X", "26/09/26"), credit_debit_indicator: "??" },
   pasUnObjet: "transaction",
