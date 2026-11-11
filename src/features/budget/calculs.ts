@@ -53,6 +53,18 @@ export function occurrencesInMonth(income: Income, month: MonthKey): IsoDate[] {
   return [echeance];
 }
 
+/**
+ * Montant d’une occurrence du revenu dans le mois : l’exception du mois si elle existe, le
+ * montant habituel sinon.
+ */
+export function incomeAmountInMonth(income: Income, month: MonthKey): Cents {
+  if (income.kind === "recurring") {
+    const exception = income.monthOverrides?.find((o) => o.month === month);
+    if (exception) return exception.amountCents;
+  }
+  return income.amountCents;
+}
+
 /** Total des revenus d’un mois : somme des montants de toutes les occurrences. */
 export function totalIncomeCentsForMonth(
   incomes: readonly Income[],
@@ -61,9 +73,30 @@ export function totalIncomeCentsForMonth(
   const montants: Cents[] = [];
   for (const revenu of incomes) {
     const nombre = occurrencesInMonth(revenu, month).length;
-    for (let i = 0; i < nombre; i += 1) montants.push(revenu.amountCents);
+    const montant = incomeAmountInMonth(revenu, month);
+    for (let i = 0; i < nombre; i += 1) montants.push(montant);
   }
   return sumCents(montants);
+}
+
+/**
+ * Le revenu avec son montant fixé pour un seul mois. `null` retire l’exception ; un montant
+ * égal au montant habituel aussi, puisqu’elle n’aurait plus d’effet.
+ */
+export function withMonthOverride(
+  income: Income,
+  month: MonthKey,
+  amountCents: Cents | null,
+): Income {
+  if (income.kind !== "recurring") return income;
+  const autres = (income.monthOverrides ?? []).filter((o) => o.month !== month);
+  const exceptions =
+    amountCents === null || amountCents === income.amountCents
+      ? autres
+      : [...autres, { month, amountCents }].sort((a, b) => a.month.localeCompare(b.month));
+  const { monthOverrides: _ancien, ...reste } = income;
+  void _ancien;
+  return exceptions.length > 0 ? { ...reste, monthOverrides: exceptions } : reste;
 }
 
 // --- Abonnements -----------------------------------------------------------------------

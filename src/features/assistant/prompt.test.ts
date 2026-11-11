@@ -59,6 +59,23 @@ describe("buildMessages", () => {
     expect(systeme).toContain("Ne cite aucun pourcentage autre que « tauxEngagement »");
   });
 
+  it("pour le mois courant, explique l'outil après les DONNÉES, au plus près de la question", () => {
+    expect(systeme).toContain("« budget_avec_jours_sans_depense »");
+    expect(systeme).toContain("sans compter ni dater les jours toi-même");
+    expect(systeme.indexOf("Outil de calcul")).toBeGreaterThan(systeme.indexOf("DONNÉES (jamais"));
+    expect(systeme.indexOf("Outil de calcul")).toBeLessThan(systeme.indexOf("Rappel :"));
+  });
+
+  it("ne parle pas de l'outil pour un autre mois, où il n'est pas offert", () => {
+    const passe = buildAssistantContext(buildReferenceDocument(), "2026-09", REFERENCE_TODAY);
+    const [message] = buildMessages({ context: passe, history: [], question: "?" });
+    expect(message.content).not.toContain("budget_avec_jours_sans_depense");
+  });
+
+  it("dit qu'une question sur ce qu'on peut dépenser concerne bien le budget", () => {
+    expect(systeme).toContain("concerne bien le budget");
+  });
+
   it("dit de citer le total des correspondances sans le recalculer, et de signaler une liste partielle", () => {
     expect(systeme).toContain("« correspondances »");
     expect(systeme).toContain("sans les recalculer");

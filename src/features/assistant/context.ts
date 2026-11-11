@@ -18,6 +18,7 @@ import { formatIsoDateFr, formatMonthFr } from "@/lib/format";
 import {
   computeMonthlyBudget,
   listUpcomingDues,
+  incomeAmountInMonth,
   occurrencesInMonth,
 } from "@/features/budget/calculs";
 import { computeMonthlyEnvelopes } from "@/features/budget/envelopes";
@@ -67,6 +68,8 @@ export interface AssistantData {
   mois: string;
   periode: "passé" | "courant" | "à venir";
   aujourdhui?: string;
+  /** Jour de la semaine d'aujourd'hui (« mercredi ») : le modèle en a besoin pour compter « jusqu'à vendredi ». */
+  jourDeLaSemaine?: string;
   budgetVide: boolean;
   synthese: {
     revenusDuMois: string;
@@ -182,6 +185,13 @@ const ORDRE_DE_REDUCTION: readonly (keyof Caps)[] = [
 const PROCHAINES_ECHEANCES = 5;
 const SANS_CATEGORIE = "Sans catégorie";
 
+const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+
+/** `2026-11-11` → `mercredi`. Calcul en UTC : la date ISO est un jour civil, sans fuseau. */
+function jourDeLaSemaine(date: IsoDate): string {
+  return JOURS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+}
+
 // --- Construction ---------------------------------------------------------------------------------------
 
 /**
@@ -272,7 +282,9 @@ export function buildAssistantContext(
     const data: AssistantData = {
       mois: formatMonthFr(month),
       periode,
-      ...(estCourant ? { aujourdhui: formatIsoDateFr(today) } : {}),
+      ...(estCourant
+        ? { aujourdhui: formatIsoDateFr(today), jourDeLaSemaine: jourDeLaSemaine(today) }
+        : {}),
       budgetVide,
       synthese: {
         revenusDuMois: montant(budget.totalIncomeCents),
@@ -360,7 +372,7 @@ export function buildAssistantContext(
 
     data.revenus = revenus.slice(0, caps.revenus).map(({ revenu, date }) => ({
       libelle: sanitizeLabel(revenu.label),
-      montant: montant(revenu.amountCents),
+      montant: montant(incomeAmountInMonth(revenu, month)),
       date: formatIsoDateFr(date),
     }));
 

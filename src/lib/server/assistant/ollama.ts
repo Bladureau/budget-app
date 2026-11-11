@@ -13,10 +13,28 @@
  * Aucune journalisation : les messages contiennent des chiffres personnels.
  */
 
-/** Rôles acceptés par l'IA. */
+/** Un appel d'outil, au format d'Ollama (`message.tool_calls[].function`). */
+export interface OllamaToolCall {
+  function: { name: string; arguments: Record<string, unknown> };
+}
+
+/** Rôles acceptés par l'IA. `tool` porte le résultat d'un outil, après l'appel du modèle. */
 export interface OllamaMessage {
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
+  /** Appels demandés par le modèle (message `assistant` rejoué au second tour). */
+  tool_calls?: OllamaToolCall[];
+  /** Outil dont ce message `tool` est le résultat. */
+  tool_name?: string;
+}
+
+/** Ce que produit une génération : du texte, ou des appels d'outils. */
+export type ChatChunk = { kind: "text"; text: string } | { kind: "toolCalls"; calls: OllamaToolCall[] };
+
+export interface ChatOptions {
+  signal?: AbortSignal;
+  /** Outils offerts au modèle, au format de l'API (`tools`). Absents : le modèle ne peut que répondre. */
+  tools?: readonly unknown[];
 }
 
 /**
@@ -140,6 +158,43 @@ export async function* streamChat(
   messages: readonly OllamaMessage[],
   signal?: AbortSignal,
 ): AsyncGenerator<string, void, void> {
+  for await (const morceau of streamChatChunks(messages, { signal })) {
+    if (morceau.kind === "text") yield morceau.text;
+  }
+}
+
+/** Appels d'outils d'un message, validés ; `null` si la forme est inattendue. */
+function lireAppels(valeur: unknown): OllamaToolCall[] | null {
+  if (!Array.isArray(valeur)) return null;
+  const appels: OllamaToolCall[] = [];
+  for (const appel of valeur) {
+    if (!estObjet(appel) || !estObjet(appel.function)) return null;
+    const { name, arguments: args } = appel.function;
+    if (typeof name !== "string") return null;
+    // Ollama rend un objet ; certaines versions, une chaîne JSON.
+    let objet: unknown = args ?? {};
+    if (typeof objet === "string") {
+      try {
+        objet = JSON.parse(objet);
+      } catch {
+        return null;
+      }
+    }
+    if (!estObjet(objet)) return null;
+    appels.push({ function: { name, arguments: objet } });
+  }
+  return appels;
+}
+
+/**
+ * Comme `streamChat`, mais avec des outils : rend aussi les appels d'outils du modèle. Exécuter
+ * l'outil et relancer la génération reviennent à l'appelant (`tool-loop.ts`).
+ */
+export async function* streamChatChunks(
+  messages: readonly OllamaMessage[],
+  options: ChatOptions = {},
+): AsyncGenerator<ChatChunk, void, void> {
+  const { signal, tools } = options;
   const { url, model } = configuration();
   let texteRecu = false;
   // Avant tout texte, un échec est une indisponibilité ; après, une coupure.
@@ -158,6 +213,7 @@ export async function* streamChat(
         stream: true,
         think: false,
         options: { num_ctx: CONTEXT_WINDOW, temperature: TEMPERATURE },
+        ...(tools !== undefined && tools.length > 0 ? { tools } : {}),
       }),
     });
   } catch {
@@ -174,8 +230,10 @@ export async function* streamChat(
   const decodeur = new TextDecoder();
   let tampon = "";
 
-  /** Traite une ligne complète ; rend `true` quand l'IA annonce la fin. */
-  const traiter = (ligne: string): { fin: boolean; texte: string } => {
+  /** Traite une ligne complète ; `fin` vaut `true` quand l'IA annonce la fin. */
+  const traiter = (
+    ligne: string,
+  ): { fin: boolean; texte: string; appels: OllamaToolCall[] | null } => {
     let objet: unknown;
     try {
       objet = JSON.parse(ligne);
@@ -187,13 +245,18 @@ export async function* streamChat(
 
     const message = objet.message;
     let texte = "";
+    let appels: OllamaToolCall[] | null = null;
     if (message !== undefined) {
       if (!estObjet(message)) throw echec();
       if (message.content !== undefined && typeof message.content !== "string") throw echec();
       texte = message.content ?? "";
+      if (message.tool_calls !== undefined) {
+        appels = lireAppels(message.tool_calls);
+        if (appels === null) throw echec();
+      }
     }
     if (objet.done !== undefined && typeof objet.done !== "boolean") throw echec();
-    return { fin: objet.done === true, texte };
+    return { fin: objet.done === true, texte, appels };
   };
 
   try {
@@ -208,11 +271,12 @@ export async function* streamChat(
       if (lecture.done) {
         tampon += decodeur.decode();
         if (tampon.trim() !== "") {
-          const { fin, texte } = traiter(tampon);
+          const { fin, texte, appels } = traiter(tampon);
           if (texte !== "") {
             texteRecu = true;
-            yield texte;
+            yield { kind: "text", text: texte };
           }
+          if (appels !== null && appels.length > 0) yield { kind: "toolCalls", calls: appels };
           if (fin) return;
         }
         // Le flux s'est fermé sans annoncer sa fin.
@@ -225,11 +289,12 @@ export async function* streamChat(
 
       for (const ligne of lignes) {
         if (ligne.trim() === "") continue;
-        const { fin, texte } = traiter(ligne);
+        const { fin, texte, appels } = traiter(ligne);
         if (texte !== "") {
           texteRecu = true;
-          yield texte;
+          yield { kind: "text", text: texte };
         }
+        if (appels !== null && appels.length > 0) yield { kind: "toolCalls", calls: appels };
         if (fin) return;
       }
     }

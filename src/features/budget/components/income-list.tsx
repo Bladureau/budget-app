@@ -4,7 +4,11 @@ import { useState } from "react";
 import { useBudget } from "@/features/budget/budget-provider";
 import { IncomeForm } from "@/features/budget/components/income-form";
 import { buttonClassName } from "@/features/budget/components/form-field";
-import { occurrencesInMonth, totalIncomeCentsForMonth } from "@/features/budget/calculs";
+import {
+  incomeAmountInMonth,
+  occurrencesInMonth,
+  totalIncomeCentsForMonth,
+} from "@/features/budget/calculs";
 import { PERIODICITY_LABELS } from "@/features/budget/types";
 import type { Income } from "@/features/budget/types";
 import { formatCents } from "@/lib/money";
@@ -40,6 +44,8 @@ export function IncomeList() {
         <ul className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
           {duMois.map((revenu) => {
             const echeances = occurrencesInMonth(revenu, selectedMonth);
+            const montant = incomeAmountInMonth(revenu, selectedMonth);
+            const modifieCeMois = montant !== revenu.amountCents;
             return (
               <li key={revenu.id} className="p-3">
                 {enEdition?.id === revenu.id ? (
@@ -52,11 +58,14 @@ export function IncomeList() {
                         {revenu.kind === "recurring"
                           ? `${PERIODICITY_LABELS[revenu.periodicity]} · échéance le ${formatIsoDateFr(echeances[0])}`
                           : `Ponctuel · ${formatIsoDateFr(revenu.date)}`}
+                        {modifieCeMois
+                          ? ` · modifié ce mois-ci (habituellement ${formatCents(revenu.amountCents)})`
+                          : ""}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold tabular-nums">
-                        {formatCents(revenu.amountCents)}
+                        {formatCents(montant)}
                       </span>
                       {/*
                         Nom accessible porté par `aria-label` : accolé à un `sr-only`,

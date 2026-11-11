@@ -17,7 +17,9 @@ import {
 } from "@/features/budget/messages";
 import { PERIODICITY_LABELS } from "@/features/budget/types";
 import type { Income, IncomeKind, Periodicity } from "@/features/budget/types";
+import { incomeAmountInMonth, withMonthOverride } from "@/features/budget/calculs";
 import { compareIso, isValidIsoDate } from "@/lib/date";
+import { formatMonthFr } from "@/lib/format";
 import { centsToInputValue, formatCents, parseAmountInput } from "@/lib/money";
 
 interface Erreurs {
@@ -27,6 +29,9 @@ interface Erreurs {
   startDate?: string;
   endDate?: string;
 }
+
+/** Portée d’une modification de revenu récurrent. */
+type Portee = "month" | "all";
 
 function valeursInitiales(revenu: Income | null, defaut: string) {
   if (!revenu) {
@@ -65,10 +70,24 @@ export function IncomeForm({
   editing?: Income | null;
   onDone?: () => void;
 }) {
-  const { addIncome, updateIncome, today } = useBudget();
+  const { addIncome, updateIncome, today, selectedMonth } = useBudget();
   const prefixe = useId();
   const [valeurs, setValeurs] = useState(() => valeursInitiales(editing ?? null, today));
   const [erreurs, setErreurs] = useState<Erreurs>({});
+
+  // Modifier un revenu récurrent ne touche par défaut que le mois consulté : changer son
+  // montant pour tous les mois réécrirait aussi les mois passés.
+  const editionRecurrente = editing?.kind === "recurring" ? editing : null;
+  const [portee, setPortee] = useState<Portee>("month");
+  const montantDuMois = editionRecurrente
+    ? incomeAmountInMonth(editionRecurrente, selectedMonth)
+    : null;
+  const [montantMois, setMontantMois] = useState(() =>
+    montantDuMois === null ? "" : centsToInputValue(montantDuMois),
+  );
+  const exceptionDuMois =
+    editionRecurrente?.monthOverrides?.some((o) => o.month === selectedMonth) ?? false;
+  const modeMois = editionRecurrente !== null && portee === "month";
 
   const estRecurrent = valeurs.kind === "recurring";
 
@@ -106,6 +125,19 @@ export function IncomeForm({
 
   function soumettre(evenement: React.FormEvent) {
     evenement.preventDefault();
+
+    if (modeMois && editionRecurrente) {
+      const montant = parseAmountInput(montantMois);
+      if (!montant.ok) {
+        setErreurs({ amount: AMOUNT_ERROR_MESSAGES[montant.reason] });
+        return;
+      }
+      updateIncome(withMonthOverride(editionRecurrente, selectedMonth, montant.cents));
+      setErreurs({});
+      onDone?.();
+      return;
+    }
+
     const trouvees = valider();
     setErreurs(trouvees);
     if (Object.keys(trouvees).length > 0) return;
@@ -124,7 +156,14 @@ export function IncomeForm({
         }
       : { ...commun, kind: "oneOff" as const, date: valeurs.date };
 
-    if (editing) updateIncome({ ...donnees, id: editing.id });
+    if (editing) {
+      // Les exceptions mensuelles survivent à une modification « tous les mois ».
+      const exceptions =
+        editionRecurrente?.monthOverrides && donnees.kind === "recurring"
+          ? { monthOverrides: editionRecurrente.monthOverrides }
+          : {};
+      updateIncome({ ...donnees, ...exceptions, id: editing.id });
+    }
     else addIncome(donnees);
 
     if (!editing) setValeurs(valeursInitiales(null, today));
@@ -134,8 +173,90 @@ export function IncomeForm({
 
   const apercu = parseAmountInput(valeurs.amount);
 
+  const choixPortee = editionRecurrente ? (
+    <fieldset>
+      <legend className="text-sm font-medium">Appliquer la modification à</legend>
+      <div className="mt-2 flex flex-wrap gap-4">
+        {(
+          [
+            ["month", `${formatMonthFr(selectedMonth)} seulement`],
+            ["all", "Tous les mois"],
+          ] as const
+        ).map(([valeur, libelle]) => (
+          <label key={valeur} className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name={`${prefixe}-portee`}
+              value={valeur}
+              checked={portee === valeur}
+              onChange={() => {
+                setPortee(valeur);
+                setErreurs({});
+              }}
+              className="size-4"
+            />
+            {libelle}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  ) : null;
+
+  if (modeMois && editionRecurrente) {
+    const apercuMois = parseAmountInput(montantMois);
+    return (
+      <form onSubmit={soumettre} noValidate className="space-y-4">
+        <p className="font-medium">{editionRecurrente.label}</p>
+        {choixPortee}
+        <FormField
+          id={`${prefixe}-amount-month`}
+          label={`Montant pour ${formatMonthFr(selectedMonth)}`}
+          error={erreurs.amount}
+        >
+          {(props) => (
+            <>
+              <input
+                {...props}
+                type="text"
+                inputMode="decimal"
+                className={inputClassName}
+                value={montantMois}
+                onChange={(e) => setMontantMois(e.target.value)}
+              />
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                {apercuMois.ok && !erreurs.amount ? `${formatCents(apercuMois.cents)} · ` : ""}
+                Montant habituel : {formatCents(editionRecurrente.amountCents)}
+              </p>
+            </>
+          )}
+        </FormField>
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" className={primaryButtonClassName}>
+            Enregistrer
+          </button>
+          {exceptionDuMois ? (
+            <button
+              type="button"
+              className={buttonClassName}
+              onClick={() => {
+                updateIncome(withMonthOverride(editionRecurrente, selectedMonth, null));
+                onDone?.();
+              }}
+            >
+              Revenir au montant habituel
+            </button>
+          ) : null}
+          <button type="button" className={buttonClassName} onClick={onDone}>
+            Annuler
+          </button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={soumettre} noValidate className="space-y-4">
+      {choixPortee}
       <FormField id={`${prefixe}-label`} label="Libellé" error={erreurs.label}>
         {(props) => (
           <input

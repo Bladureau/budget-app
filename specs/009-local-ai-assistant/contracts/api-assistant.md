@@ -144,6 +144,29 @@ chaîne ou absent, `done` booléen) : une ligne qui ne respecte pas cette forme 
 
 `temperature` basse : on cherche la fidélité aux données, pas la créativité.
 
+### Outil de calcul (ajout du 11/11/2026)
+
+Pour le **mois courant** seulement, la requête porte aussi `tools` : un seul outil,
+`budget_avec_jours_sans_depense` (`src/features/assistant/tools.ts`), qui répond à « combien puis-je
+dépenser aujourd'hui si je ne dépense rien tels jours à venir ? ». Le modèle ne calcule toujours rien
+(règle 1) : il passe les jours **tels que l'utilisateur les cite** (`jours: ["vendredi", "samedi"]`
+ou `jusquA: "jeudi"`), l'application trouve les dates et fait le calcul au centime.
+
+Calcul : les jours restants du mois où l'on dépense encore (aujourd'hui exclu) gardent chacun le
+budget par jour de l'écran ; tout le reste revient à aujourd'hui, moins ce qui y a déjà été dépensé.
+Un jour du mois suivant est signalé, sans effet.
+
+Déroulement (`src/lib/server/assistant/tool-loop.ts`), **un seul tour d'outil** :
+
+1. première génération avec `tools` ; le texte éventuel passe au navigateur ;
+2. si le modèle demande l'outil (`message.tool_calls`) sans avoir écrit de texte, l'application
+   l'exécute (3 appels au plus), puis relance une génération **sans `tools`**, avec les messages
+   `{"role":"assistant","content":"","tool_calls":[…]}` et `{"role":"tool","tool_name":"…","content":"{…}"}`.
+
+Les montants rendus par l'outil sont ajoutés aux valeurs connues : la réponse qui les recopie n'est
+pas signalée par le contrôle des montants. Des arguments invalides rendent `{"erreur":"…"}` au modèle.
+Coût mesuré : environ 4 s pour une question qui appelle l'outil (deux générations).
+
 **Un seul message système** (consignes, données, rappel) : plusieurs messages système dépendent du
 gabarit de conversation du modèle, qui peut ignorer ceux qui suivent le premier.
 
@@ -153,7 +176,7 @@ gabarit de conversation du modèle, qui peut ignorer ceux qui suivent le premier
 
 | Exigence | Où elle est tenue |
 |---|---|
-| EF-006 lecture seule | La route n'appelle que `readBudget()` ; aucun outil exposé au modèle. |
+| EF-006 lecture seule | La route n'appelle que `readBudget()` ; le seul outil exposé au modèle est un calcul en lecture seule (`tools.ts`). |
 | EF-015 libellés = données | Assainissement + bloc JSON délimité + consignes séparées ([data-model.md](../data-model.md) §1, R7). |
 | EF-016 minimisation | Aucun identifiant, `rawLabel`, `bankRef`, jeton ni compte dans le contexte. |
 | EF-017 rien hors de la machine | Seul `OLLAMA_URL` est appelé ; aucun autre `fetch` sortant dans le module. |
