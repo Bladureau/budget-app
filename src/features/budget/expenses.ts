@@ -291,12 +291,19 @@ export function computeMonthlySpending(
  * proche permettrait de promettre de l'argent qui n'existe pas. Les centimes non répartis
  * restent dans le reste et reviennent au dernier jour, où il reste un seul jour à servir.
  */
+/**
+ * Ce qui reste à répartir sur les jours restants du mois, au matin de `date` : disponible du mois
+ * moins le dépensé net **avant** ce jour. Peut être négatif (mois déjà dépassé).
+ */
+export function remainingToSpreadCents(doc: BudgetDocument, date: IsoDate): Cents {
+  return availableCentsForMonth(doc, monthKeyOf(date), date) - depenseNetAvant(doc, date);
+}
+
 export function computeDailyAllowance(doc: BudgetDocument, date: IsoDate): DailyAllowance {
   const mois = monthKeyOf(date);
-  const disponible = availableCentsForMonth(doc, mois, date);
 
   const daysRemaining = daysInMonth(mois) - dayOfMonth(date) + 1;
-  const restant = disponible - depenseNetAvant(doc, date);
+  const restant = remainingToSpreadCents(doc, date);
 
   const allowanceCents =
     restant <= 0 || daysRemaining <= 0 ? 0 : Math.floor(restant / daysRemaining);

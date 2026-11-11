@@ -5,8 +5,9 @@
  *
  * Un seul chemin, une seule méthode : toute autre méthode reçoit `405` de Next.js sans code ici.
  *
- * **Lecture seule** (EF-006) : la route lit le budget central et ne l'écrit jamais. L'IA n'a aucun
- * outil, donc rien à détourner.
+ * **Lecture seule** (EF-006) : la route lit le budget central et ne l'écrit jamais. Les seuls
+ * outils de l'IA sont des calculs en lecture seule (`features/assistant/tools.ts`) : rien à écrire,
+ * donc rien à détourner.
  *
  * **Aucun `export const runtime`** : `'nodejs'` est le défaut de la version installée et le runtime
  * Edge y est déprécié. **Aucun `export const dynamic`** : le contrôle d'autorisation lit
@@ -22,6 +23,8 @@ import { isAuthorized, unauthorizedResponse } from "@/lib/server/authorization";
 import { readBudget } from "@/lib/server/budget-store";
 import { checkAvailability, streamChat } from "@/lib/server/assistant/ollama";
 import { buildResponseStream } from "@/lib/server/assistant/stream";
+import { answerWithTools } from "@/lib/server/assistant/tool-loop";
+import { ASSISTANT_TOOLS, runAssistantTool } from "@/features/assistant/tools";
 
 /**
  * Délai maximal d'une génération (EF-011). Il court à partir du moment où l'IA est jugée
@@ -84,10 +87,34 @@ export async function POST(request: Request): Promise<Response> {
   // alors de générer (EF-026) ; le délai maximal, lui, vaut `timeout`.
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(DELAI_MAX_MS)]);
 
+  // Valeurs connues : celles du contexte, plus celles que rendront les outils. Le contrôle des
+  // montants ne les lit qu'à la fin de la réponse, après l'éventuel tour d'outil.
+  const known = { cents: new Set(contexte.known.cents), percents: new Set(contexte.known.percents) };
+
+  // Les outils ne valent que pour le mois courant : « aujourd'hui » n'a pas de sens ailleurs.
+  const avecOutils = contexte.data.jour !== undefined;
+  const chunks = avecOutils
+    ? answerWithTools({
+        messages: prompt,
+        tools: ASSISTANT_TOOLS,
+        signal,
+        execute: (appel) => {
+          const resultat = runAssistantTool(
+            { name: appel.function.name, arguments: appel.function.arguments },
+            budget.document,
+            today,
+          );
+          for (const c of resultat.known.cents) known.cents.add(c);
+          for (const p of resultat.known.percents) known.percents.add(p);
+          return resultat.content;
+        },
+      })
+    : streamChat(prompt, signal);
+
   const flux = buildResponseStream({
-    chunks: streamChat(prompt, signal),
+    chunks,
     modelLoading: !disponibilite.modelLoaded,
-    known: contexte.known,
+    known,
   });
 
   return new Response(flux, { status: 200, headers: ENTETES_FLUX });

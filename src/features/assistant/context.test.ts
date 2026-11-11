@@ -149,6 +149,7 @@ describe("buildAssistantContext — mois et période", () => {
     expect(data.mois).toBe("octobre 2026");
     expect(data.periode).toBe("courant");
     expect(data.aujourdhui).toBe("24/10/2026");
+    expect(data.jourDeLaSemaine).toBe("samedi");
   });
 
   it("n'inclut pas le bloc « jour » ni la date du jour pour un mois passé", () => {
@@ -157,6 +158,7 @@ describe("buildAssistantContext — mois et période", () => {
     expect(data.mois).toBe("septembre 2026");
     expect(data.jour).toBeUndefined();
     expect(data.aujourdhui).toBeUndefined();
+    expect(data.jourDeLaSemaine).toBeUndefined();
     // Pas de réserve avant sa première déclaration.
     expect(data.reserve).toBeUndefined();
     expect(data.depensesRecentes).toEqual([]);
