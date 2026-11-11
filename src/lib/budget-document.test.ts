@@ -450,3 +450,51 @@ describe("réserve d'épargne du document v5", () => {
     });
   });
 });
+// --- Exceptions mensuelles des revenus récurrents ------------------------------------------
+
+describe("exceptions mensuelles d'un revenu récurrent", () => {
+  const recurrent = {
+    id: "salaire",
+    label: "Salaire",
+    amountCents: 180000,
+    kind: "recurring",
+    periodicity: "monthly",
+    startDate: "2026-01-05",
+    endDate: null,
+  };
+  const avec = (monthOverrides: unknown) => ({
+    ...emptyDocument(),
+    incomes: [{ ...recurrent, monthOverrides }],
+  });
+
+  it("accepte un revenu sans exception (documents antérieurs)", () => {
+    const resultat = parseDocument({ ...emptyDocument(), incomes: [recurrent] });
+    expect(resultat.ok && resultat.value.incomes[0]).toEqual(recurrent);
+  });
+
+  it("conserve des exceptions valides", () => {
+    const exceptions = [
+      { month: "2026-02", amountCents: 100 },
+      { month: "2026-11", amountCents: 200 },
+    ];
+    const resultat = parseDocument(avec(exceptions));
+    expect(resultat.ok && resultat.value.incomes[0]).toEqual({
+      ...recurrent,
+      monthOverrides: exceptions,
+    });
+  });
+
+  it("refuse un mois invalide, un montant nul, un doublon ou un désordre", () => {
+    refuse(avec([{ month: "2026-13", amountCents: 100 }]));
+    refuse(avec([{ month: "2026-02", amountCents: 0 }]));
+    refuse(avec([
+      { month: "2026-02", amountCents: 100 },
+      { month: "2026-02", amountCents: 200 },
+    ]));
+    refuse(avec([
+      { month: "2026-03", amountCents: 100 },
+      { month: "2026-02", amountCents: 200 },
+    ]));
+    refuse(avec("non"));
+  });
+});

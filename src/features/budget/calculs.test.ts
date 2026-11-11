@@ -5,12 +5,14 @@ import {
   duesInMonth,
   computeMonthlyBudget,
   forecast,
+  incomeAmountInMonth,
   isActiveSubscription,
   listUpcomingDues,
   occurrencesInMonth,
   totalChargesCentsForMonth,
   totalIncomeCentsForMonth,
   withAmountChange,
+  withMonthOverride,
   withPause,
   withTermination,
 } from "@/features/budget/calculs";
@@ -671,5 +673,34 @@ describe("withTermination", () => {
 
   it("refuse une résiliation antérieure à la première échéance", () => {
     expect(withTermination(streaming, "2025-12-31")).toBeNull();
+  });
+});
+
+describe("revenu récurrent modifié pour un seul mois", () => {
+  const modifie = withMonthOverride(salaire, "2026-03", 200000);
+
+  it("ne change que le mois visé", () => {
+    expect(incomeAmountInMonth(modifie, "2026-03")).toBe(200000);
+    expect(incomeAmountInMonth(modifie, "2026-02")).toBe(240000);
+    expect(incomeAmountInMonth(modifie, "2026-04")).toBe(240000);
+    expect(totalIncomeCentsForMonth([modifie], "2026-03")).toBe(200000);
+    expect(totalIncomeCentsForMonth([modifie], "2026-04")).toBe(240000);
+  });
+
+  it("remplace l’exception existante du mois et garde les autres triées", () => {
+    const deux = withMonthOverride(withMonthOverride(modifie, "2026-01", 100), "2026-03", 300);
+    expect(deux.kind === "recurring" && deux.monthOverrides).toEqual([
+      { month: "2026-01", amountCents: 100 },
+      { month: "2026-03", amountCents: 300 },
+    ]);
+  });
+
+  it("retire l’exception avec null ou avec le montant habituel", () => {
+    expect(withMonthOverride(modifie, "2026-03", null)).toEqual(salaire);
+    expect(withMonthOverride(modifie, "2026-03", 240000)).toEqual(salaire);
+  });
+
+  it("laisse un revenu ponctuel intact", () => {
+    expect(withMonthOverride(prime, "2026-03", 1)).toBe(prime);
   });
 });

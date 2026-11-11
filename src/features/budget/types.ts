@@ -58,6 +58,18 @@ export interface RecurringIncome {
   periodicity: Periodicity;
   startDate: IsoDate;
   endDate: IsoDate | null;
+  /**
+   * Montants propres à un mois, qui remplacent `amountCents` pour ce mois seulement (une prime,
+   * un salaire réduit…). **Absent = aucune exception** : les documents antérieurs restent
+   * valides sans migration. Au plus une exception par mois, triées par mois croissant.
+   */
+  monthOverrides?: IncomeMonthOverride[];
+}
+
+/** Montant d'un revenu récurrent modifié pour un seul mois. */
+export interface IncomeMonthOverride {
+  month: MonthKey;
+  amountCents: Cents;
 }
 
 export type Income = OneOffIncome | RecurringIncome;

@@ -34,6 +34,7 @@ import type {
   InboxItem,
   InboxReason,
   Income,
+  IncomeMonthOverride,
   IsoDate,
   LedgerEntry,
   LedgerOutcome,
@@ -118,6 +119,8 @@ function analyserRevenu(brut: unknown): Income | null {
     if (!dateValide(brut.startDate)) return null;
     if (!dateOuNull(brut.endDate)) return null;
     if (brut.endDate !== null && compareIso(brut.endDate, brut.startDate) < 0) return null;
+    const exceptions = analyserExceptionsRevenu(brut.monthOverrides);
+    if (!exceptions) return null;
     return {
       id: brut.id,
       label: brut.label,
@@ -126,10 +129,28 @@ function analyserRevenu(brut: unknown): Income | null {
       periodicity: brut.periodicity,
       startDate: brut.startDate,
       endDate: brut.endDate,
+      ...(exceptions.length > 0 ? { monthOverrides: exceptions } : {}),
     };
   }
 
   return null;
+}
+
+/** Exceptions mensuelles d’un revenu récurrent : facultatives, au plus une par mois, triées. */
+function analyserExceptionsRevenu(brut: unknown): IncomeMonthOverride[] | null {
+  if (brut === undefined) return [];
+  if (!Array.isArray(brut)) return null;
+  const exceptions: IncomeMonthOverride[] = [];
+  for (const element of brut) {
+    if (!estObjet(element)) return null;
+    if (typeof element.month !== "string" || !isValidMonthKey(element.month)) return null;
+    if (!montantValide(element.amountCents)) return null;
+    exceptions.push({ month: element.month, amountCents: element.amountCents });
+  }
+  for (let i = 1; i < exceptions.length; i += 1) {
+    if (exceptions[i - 1].month.localeCompare(exceptions[i].month) >= 0) return null;
+  }
+  return exceptions;
 }
 
 function analyserPeriodesMontant(brut: unknown, debut: IsoDate): AmountPeriod[] | null {

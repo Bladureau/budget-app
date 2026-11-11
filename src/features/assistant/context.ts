@@ -18,6 +18,7 @@ import { formatIsoDateFr, formatMonthFr } from "@/lib/format";
 import {
   computeMonthlyBudget,
   listUpcomingDues,
+  incomeAmountInMonth,
   occurrencesInMonth,
 } from "@/features/budget/calculs";
 import { computeMonthlyEnvelopes } from "@/features/budget/envelopes";
@@ -360,7 +361,7 @@ export function buildAssistantContext(
 
     data.revenus = revenus.slice(0, caps.revenus).map(({ revenu, date }) => ({
       libelle: sanitizeLabel(revenu.label),
-      montant: montant(revenu.amountCents),
+      montant: montant(incomeAmountInMonth(revenu, month)),
       date: formatIsoDateFr(date),
     }));
 
